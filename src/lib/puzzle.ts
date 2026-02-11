@@ -59,38 +59,38 @@ function drawJigsawSide(
   const uy = dy / len;
   const nx = -uy * tabDir;
   const ny = ux * tabDir;
-  const tabHeight = len * 0.25;
-  const neckWidth = len * 0.08;
-  const headWidth = len * 0.16;
+  const tabHeight = len * 0.32;
+  const neckWidth = len * 0.12;
+  const headWidth = len * 0.24;
 
   // Straight segment to neck start
   ctx.lineTo(x0 + dx * 0.34, y0 + dy * 0.34);
 
   // Neck inward curve (slight pinch)
   ctx.bezierCurveTo(
-    x0 + dx * 0.36 + nx * neckWidth * 0.3, y0 + dy * 0.36 + ny * neckWidth * 0.3,
-    x0 + dx * 0.38 - nx * neckWidth * 0.5, y0 + dy * 0.38 - ny * neckWidth * 0.5,
+    x0 + dx * 0.36 + nx * neckWidth * 0.2, y0 + dy * 0.36 + ny * neckWidth * 0.2,
+    x0 + dx * 0.38 - nx * neckWidth * 0.3, y0 + dy * 0.38 - ny * neckWidth * 0.3,
     x0 + dx * 0.38 + nx * neckWidth, y0 + dy * 0.38 + ny * neckWidth
   );
 
-  // Left side of tab head (round bulge)
+  // Left side of tab head (round bulge — wider, more circular)
   ctx.bezierCurveTo(
-    x0 + dx * 0.34 - ux * headWidth * 0.4 + nx * tabHeight, y0 + dy * 0.34 - uy * headWidth * 0.4 + ny * tabHeight,
-    x0 + dx * 0.42 - ux * headWidth * 0.1 + nx * tabHeight * 1.05, y0 + dy * 0.42 - uy * headWidth * 0.1 + ny * tabHeight * 1.05,
+    x0 + dx * 0.30 - ux * headWidth * 0.5 + nx * tabHeight * 0.9, y0 + dy * 0.30 - uy * headWidth * 0.5 + ny * tabHeight * 0.9,
+    x0 + dx * 0.38 - ux * headWidth * 0.3 + nx * tabHeight * 1.15, y0 + dy * 0.38 - uy * headWidth * 0.3 + ny * tabHeight * 1.15,
     x0 + dx * 0.5 + nx * tabHeight, y0 + dy * 0.5 + ny * tabHeight
   );
 
-  // Right side of tab head (round bulge, mirror)
+  // Right side of tab head (round bulge, mirror — wider, more circular)
   ctx.bezierCurveTo(
-    x0 + dx * 0.58 + ux * headWidth * 0.1 + nx * tabHeight * 1.05, y0 + dy * 0.58 + uy * headWidth * 0.1 + ny * tabHeight * 1.05,
-    x0 + dx * 0.66 + ux * headWidth * 0.4 + nx * tabHeight, y0 + dy * 0.66 + uy * headWidth * 0.4 + ny * tabHeight,
+    x0 + dx * 0.62 + ux * headWidth * 0.3 + nx * tabHeight * 1.15, y0 + dy * 0.62 + uy * headWidth * 0.3 + ny * tabHeight * 1.15,
+    x0 + dx * 0.70 + ux * headWidth * 0.5 + nx * tabHeight * 0.9, y0 + dy * 0.70 + uy * headWidth * 0.5 + ny * tabHeight * 0.9,
     x0 + dx * 0.62 + nx * neckWidth, y0 + dy * 0.62 + ny * neckWidth
   );
 
   // Neck outward curve back to edge
   ctx.bezierCurveTo(
-    x0 + dx * 0.62 - nx * neckWidth * 0.5, y0 + dy * 0.62 - ny * neckWidth * 0.5,
-    x0 + dx * 0.64 + nx * neckWidth * 0.3, y0 + dy * 0.64 + ny * neckWidth * 0.3,
+    x0 + dx * 0.62 - nx * neckWidth * 0.3, y0 + dy * 0.62 - ny * neckWidth * 0.3,
+    x0 + dx * 0.64 + nx * neckWidth * 0.2, y0 + dy * 0.64 + ny * neckWidth * 0.2,
     x0 + dx * 0.66, y0 + dy * 0.66
   );
 
@@ -131,8 +131,8 @@ export function splitImage(
     img.onload = () => {
       const pieceW = Math.floor(img.width / cols);
       const pieceH = Math.floor(img.height / rows);
-      const tabW = Math.ceil(pieceW * 0.28);
-      const tabH = Math.ceil(pieceH * 0.28);
+      const tabW = Math.ceil(pieceW * 0.35);
+      const tabH = Math.ceil(pieceH * 0.35);
       const pieces: PuzzlePiece[] = [];
       const tabs = generateTabsConfig(rows, cols);
 
