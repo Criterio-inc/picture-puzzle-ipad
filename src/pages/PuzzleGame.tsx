@@ -9,8 +9,8 @@ import PieceTray from "@/components/puzzle/PieceTray";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
 
-const COLS = 8;
-const ROWS = 8;
+const COLS = 24;
+const ROWS = 24;
 
 const PuzzleGame = () => {
   const navigate = useNavigate();
