@@ -9,13 +9,12 @@ import PieceTray from "@/components/puzzle/PieceTray";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
 
-const COLS = 24;
-const ROWS = 24;
-
 const PuzzleGame = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const COLS = Number(searchParams.get("cols")) || 24;
+  const ROWS = Number(searchParams.get("rows")) || 24;
   const [trayPieces, setTrayPieces] = useState<PuzzlePiece[]>([]);
   const [boardPieces, setBoardPieces] = useState<PuzzlePiece[]>([]);
   const [loading, setLoading] = useState(true);

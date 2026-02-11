@@ -21,9 +21,16 @@ const Home = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [processing, setProcessing] = useState(false);
+const [processing, setProcessing] = useState(false);
   const [savedGames, setSavedGames] = useState<SavedGame[]>([]);
   const [loadingGames, setLoadingGames] = useState(true);
+  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("hard");
+
+  const difficultyOptions = [
+    { key: "easy" as const, label: "Lätt", grid: "8×8", pieces: 64 },
+    { key: "medium" as const, label: "Medium", grid: "16×16", pieces: 256 },
+    { key: "hard" as const, label: "Svår", grid: "24×24", pieces: 576 },
+  ];
 
   useEffect(() => {
     if (!user) return;
@@ -49,7 +56,8 @@ const Home = () => {
     const reader = new FileReader();
     reader.onload = () => {
       sessionStorage.setItem("puzzleImage", reader.result as string);
-      navigate("/puzzle");
+      const sel = difficultyOptions.find((d) => d.key === difficulty)!;
+      navigate(`/puzzle?cols=${sel.pieces === 64 ? 8 : sel.pieces === 256 ? 16 : 24}&rows=${sel.pieces === 64 ? 8 : sel.pieces === 256 ? 16 : 24}`);
     };
     reader.onerror = () => {
       toast.error("Kunde inte läsa bilden");
@@ -149,8 +157,25 @@ const Home = () => {
             </div>
             <h1 className="text-2xl font-bold text-foreground">Nytt pussel</h1>
             <p className="max-w-md text-sm text-muted-foreground">
-              Välj en bild från ditt bildbibliotek så skapas ett pussel med ca 576 bitar
+              Välj svårighetsgrad och en bild så skapas ditt pussel
             </p>
+          </div>
+
+          <div className="flex gap-2">
+            {difficultyOptions.map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => setDifficulty(opt.key)}
+                className={`flex flex-col items-center rounded-xl border-2 px-5 py-3 transition-all ${
+                  difficulty === opt.key
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-card text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                <span className="text-sm font-semibold">{opt.label}</span>
+                <span className="text-xs">{opt.grid} ({opt.pieces} bitar)</span>
+              </button>
+            ))}
           </div>
 
           <input
