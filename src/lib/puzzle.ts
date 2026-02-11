@@ -59,12 +59,12 @@ function drawJigsawSide(
   const nx = -uy * tabDir;
   const ny = ux * tabDir;
 
-  const neckStart = 0.34;
-  const neckEnd = 0.66;
-  const neckInset = len * 0.02;
-  const neckWidth = len * 0.10;
-  const tabHeight = len * 0.30;
-  const headSpread = len * 0.26;
+  const neckStart = 0.38;
+  const neckEnd = 0.62;
+  const neckInset = 0;
+  const neckWidth = len * 0.14;
+  const tabHeight = len * 0.34;
+  const headSpread = len * 0.30;
 
   // 1. Smooth curve into neck start (no hard corner)
   const ns_x = x0 + dx * neckStart;
@@ -80,15 +80,15 @@ function drawJigsawSide(
 
   // 3. Left side of head: wide smooth circular arc
   ctx.bezierCurveTo(
-    x0 + dx * 0.30 - ux * headSpread * 0.3 + nx * tabHeight * 0.85, y0 + dy * 0.30 - uy * headSpread * 0.3 + ny * tabHeight * 0.85,
-    x0 + dx * 0.36 - ux * headSpread * 0.15 + nx * tabHeight * 1.12, y0 + dy * 0.36 - uy * headSpread * 0.15 + ny * tabHeight * 1.12,
+    x0 + dx * 0.28 - ux * headSpread * 0.3 + nx * tabHeight * 0.85, y0 + dy * 0.28 - uy * headSpread * 0.3 + ny * tabHeight * 0.85,
+    x0 + dx * 0.34 - ux * headSpread * 0.15 + nx * tabHeight * 1.15, y0 + dy * 0.34 - uy * headSpread * 0.15 + ny * tabHeight * 1.15,
     x0 + dx * 0.5 + nx * tabHeight, y0 + dy * 0.5 + ny * tabHeight
   );
 
   // 4. Right side of head: mirror smooth circular arc
   ctx.bezierCurveTo(
-    x0 + dx * 0.64 + ux * headSpread * 0.15 + nx * tabHeight * 1.12, y0 + dy * 0.64 + uy * headSpread * 0.15 + ny * tabHeight * 1.12,
-    x0 + dx * 0.70 + ux * headSpread * 0.3 + nx * tabHeight * 0.85, y0 + dy * 0.70 + uy * headSpread * 0.3 + ny * tabHeight * 0.85,
+    x0 + dx * 0.66 + ux * headSpread * 0.15 + nx * tabHeight * 1.15, y0 + dy * 0.66 + uy * headSpread * 0.15 + ny * tabHeight * 1.15,
+    x0 + dx * 0.72 + ux * headSpread * 0.3 + nx * tabHeight * 0.85, y0 + dy * 0.72 + uy * headSpread * 0.3 + ny * tabHeight * 0.85,
     x0 + dx * 0.58 + nx * neckWidth, y0 + dy * 0.58 + ny * neckWidth
   );
 
