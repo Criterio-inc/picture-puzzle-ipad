@@ -184,8 +184,10 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect }: 
               top: guideRect.y,
               width: guideRect.width,
               height: guideRect.height,
-              border: "2px dashed rgba(255,255,255,0.35)",
+              border: "2px dashed rgba(255,255,255,0.45)",
               borderRadius: 2,
+              background: "rgba(255,255,255,0.04)",
+              boxShadow: "inset 0 0 40px rgba(255,255,255,0.06), 0 0 15px rgba(255,255,255,0.05)",
             }}
           />
         )}
