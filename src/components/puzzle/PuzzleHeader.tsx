@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Eraser, Flag, Save } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Eraser, Flag } from "lucide-react";
 
 interface PuzzleHeaderProps {
   totalPieces: number;
@@ -8,17 +7,14 @@ interface PuzzleHeaderProps {
   trayCount: number;
   onClearStray: () => void;
   onGiveUp: () => void;
-  onSave: () => void;
-  saving: boolean;
+  onBack: () => void;
 }
 
-const PuzzleHeader = ({ totalPieces, boardCount, trayCount, onClearStray, onGiveUp, onSave, saving }: PuzzleHeaderProps) => {
-  const navigate = useNavigate();
-
+const PuzzleHeader = ({ totalPieces, boardCount, trayCount, onClearStray, onGiveUp, onBack }: PuzzleHeaderProps) => {
   return (
     <header className="flex items-center justify-between border-b border-border bg-card px-3 py-2">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+        <Button variant="ghost" size="icon" onClick={onBack}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -30,16 +26,6 @@ const PuzzleHeader = ({ totalPieces, boardCount, trayCount, onClearStray, onGive
         </div>
       </div>
       <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5 text-xs"
-          onClick={onSave}
-          disabled={saving}
-        >
-          <Save className="h-3.5 w-3.5" />
-          {saving ? "Sparar..." : "Spara"}
-        </Button>
         <Button
           variant="ghost"
           size="sm"
