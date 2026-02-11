@@ -1,60 +1,32 @@
 
-# Rundare pusselbitar och autosparning
 
-## 1. Rundare pusselbitsform (puzzle.ts)
+# Alla tre ändringar: Ravensburger-bitar, bildnormalisering, synligare guide
 
-Referensbilden visar klassiska pusselbitar med rejalt runda, bulliga flikar -- nastan cirkelformade "knappar" som sticker ut, och djupa runda hal. Den nuvarande koden har for smala flikar med for liten radie.
+## 1. Ravensburger-stil pusselbitar (`src/lib/puzzle.ts`)
 
-Andringar i `drawJigsawSide`-funktionen:
-- **Storre flikhojd**: Oka `tabHeight` fran `0.25` till `0.32` av kantlangden
-- **Bredare nacke**: Oka `neckWidth` fran `0.08` till `0.12`
-- **Bredare huvud**: Oka `headWidth` fran `0.16` till `0.24`
-- **Rundare Bezier-kontrollpunkter**: Justera kontrollpunkternas positioner for att skapa mer cirkelformade bulor istallet for spetsiga former. Kontrollpunkterna for "left side of tab head" och "right side of tab head" behover spridas ut mer at sidorna och tryckas langre ut fran kanten
-- **Oka tab-marginalen** i `splitImage`: Andra `tabW`/`tabH` fran `pieceW * 0.28` till `pieceW * 0.35` sa att den storre fliken far plats i canvas-ytan
+Helt omskriven `drawJigsawSide` med ny kurvprofil:
+- Smal nacke med inåtgående "klämma" (neckInset) som ger svampform
+- Stort runt huvud med breda Bezier-kurvor som skapar nästan cirkulär form
+- Parametrar: `neckWidth = 0.08`, `tabHeight = 0.30`, `headSpread = 0.22`
+- 6 segment: rak -> nacke inåt -> vänster bulge -> höger bulge -> nacke tillbaka -> rak
 
-### Tekniska detaljer -- nya Bezier-parametrar
+## 2. Bildnormalisering (`src/lib/puzzle.ts`)
 
-```text
-Nuvarande form:        Ny form (rundare):
-   /--\                   .----.
-  |    |                 /      \
-  |    |                |        |
-   \--/                  \      /
-  | || |                 | || |
-  ======                 ======
-```
+Ny `normalizeImage`-funktion som körs innan bitarna klipps:
+- Konstant `MIN_DIMENSION = 2400`
+- Om bildens största sida understiger 2400px skalas den upp proportionellt
+- Uppskalad bild ritas på en canvas som sedan används som källa
+- Garanterar att pusselbitar alltid får rimlig storlek
 
-Nyckelandringar i `drawJigsawSide`:
-- `tabHeight = len * 0.32` (fran 0.25)
-- `neckWidth = len * 0.12` (fran 0.08)
-- `headWidth = len * 0.24` (fran 0.16)
-- Kontrollpunkter for Bezier-kurvorna justeras for att ge en mer halvsfarsformad flik med jamnare rundning
+## 3. Synligare guide-rektangel (`src/components/puzzle/PuzzleBoard.tsx`)
 
-## 2. Autosparning vid navigering bort (PuzzleGame.tsx)
+- Tjockare kant: `3px dashed rgba(255,255,255,0.7)` 
+- Starkare bakgrund: `rgba(255,255,255,0.07)`
+- Kraftigare skugga: `inset 0 0 60px rgba(255,255,255,0.10)`
+- 4 st L-formade hörnmarkeringar (20x20px) i varje hörn med `rgba(255,255,255,0.8)` kanter
 
-Istallet for en manuell "Spara"-knapp ska pusslet sparas automatiskt nar anvandaren navigerar tillbaka (trycker pa tillbaka-knappen eller lamnar sidan).
+## Filer som ändras
 
-### Implementation:
-- Lagg till en `autoSave`-funktion som anropas via:
-  1. **Tillbaka-knappen i headern**: Anropa `autoSave()` innan `navigate("/")`
-  2. **`beforeunload`-event**: For att fanga webblasar-navigering och flik-stangning
-  3. **`visibilitychange`-event**: For att fanga iPad-hemknapps-tryck och app-byte
-- Ta bort den manuella "Spara"-knappen och `saving`-state fran `PuzzleHeader`
-- `autoSave` gor samma sak som `handleSave` men utan toast-meddelanden (tyst sparning)
-- Anvand en ref for att tracka om sparning redan pagat, for att undvika dubbletter
+1. `src/lib/puzzle.ts` -- ny drawJigsawSide + normalizeImage + använd normaliserad bild i splitImage
+2. `src/components/puzzle/PuzzleBoard.tsx` -- starkare guide-styling + hörnmarkeringar
 
-### Andringar i PuzzleHeader:
-- Ta bort `onSave` och `saving` fran props
-- Ta bort Spara-knappen fran UI
-- Andra tillbaka-knappen sa att den anropar en ny `onBack`-callback istallet for direkt `navigate`
-
-### Andringar i PuzzleGame:
-- Lagg till `autoSave` som sparar tyst till databasen
-- Registrera `beforeunload` och `visibilitychange` event listeners
-- Tillbaka-knappen anropar `autoSave().then(() => navigate("/"))`
-
-## Filer som andras
-
-1. **src/lib/puzzle.ts** -- Ny Bezier-geometri for rundare flikar, storre tab-marginaler
-2. **src/pages/PuzzleGame.tsx** -- Autosparning vid navigering, ta bort manuell save-logik
-3. **src/components/puzzle/PuzzleHeader.tsx** -- Ta bort Spara-knapp, lagg till `onBack`-prop
