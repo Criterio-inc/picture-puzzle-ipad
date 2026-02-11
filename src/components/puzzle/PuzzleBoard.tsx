@@ -185,23 +185,23 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect }: 
                 top: guideRect.y,
                 width: guideRect.width,
                 height: guideRect.height,
-                border: "3px dashed rgba(255,255,255,0.7)",
-                borderRadius: 3,
-                background: "rgba(255,255,255,0.07)",
-                boxShadow: "inset 0 0 60px rgba(255,255,255,0.10), 0 0 20px rgba(255,255,255,0.08)",
+                border: "2px solid rgba(255,255,255,0.85)",
+                borderRadius: 4,
+                background: "rgba(255,255,255,0.12)",
+                boxShadow: "inset 0 0 80px rgba(255,255,255,0.08), 0 0 30px rgba(255,255,255,0.10)",
               }}
             />
             {/* Corner markers */}
             {[
-              { left: guideRect.x - 4, top: guideRect.y - 4, borderLeft: "4px solid rgba(255,255,255,0.8)", borderTop: "4px solid rgba(255,255,255,0.8)" },
-              { left: guideRect.x + guideRect.width - 16, top: guideRect.y - 4, borderRight: "4px solid rgba(255,255,255,0.8)", borderTop: "4px solid rgba(255,255,255,0.8)" },
-              { left: guideRect.x - 4, top: guideRect.y + guideRect.height - 16, borderLeft: "4px solid rgba(255,255,255,0.8)", borderBottom: "4px solid rgba(255,255,255,0.8)" },
-              { left: guideRect.x + guideRect.width - 16, top: guideRect.y + guideRect.height - 16, borderRight: "4px solid rgba(255,255,255,0.8)", borderBottom: "4px solid rgba(255,255,255,0.8)" },
+              { left: guideRect.x - 6, top: guideRect.y - 6, borderLeft: "4px solid rgba(255,255,255,0.9)", borderTop: "4px solid rgba(255,255,255,0.9)" },
+              { left: guideRect.x + guideRect.width - 24, top: guideRect.y - 6, borderRight: "4px solid rgba(255,255,255,0.9)", borderTop: "4px solid rgba(255,255,255,0.9)" },
+              { left: guideRect.x - 6, top: guideRect.y + guideRect.height - 24, borderLeft: "4px solid rgba(255,255,255,0.9)", borderBottom: "4px solid rgba(255,255,255,0.9)" },
+              { left: guideRect.x + guideRect.width - 24, top: guideRect.y + guideRect.height - 24, borderRight: "4px solid rgba(255,255,255,0.9)", borderBottom: "4px solid rgba(255,255,255,0.9)" },
             ].map((style, i) => (
               <div
                 key={i}
                 className="absolute pointer-events-none"
-                style={{ ...style, width: 20, height: 20 }}
+                style={{ ...style, width: 30, height: 30 }}
               />
             ))}
           </>
