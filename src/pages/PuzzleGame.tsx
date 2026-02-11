@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { PuzzlePiece, splitImage } from "@/lib/puzzle";
+import { PuzzlePiece, splitImage, trySnap } from "@/lib/puzzle";
 import PuzzleHeader from "@/components/puzzle/PuzzleHeader";
 import PuzzleBoard from "@/components/puzzle/PuzzleBoard";
 import PieceTray from "@/components/puzzle/PieceTray";
@@ -16,7 +16,6 @@ const PuzzleGame = () => {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [trayExpanded, setTrayExpanded] = useState(false);
-  const originalImageRef = useRef<string>("");
 
   useEffect(() => {
     const imageData = sessionStorage.getItem("puzzleImage");
@@ -24,7 +23,6 @@ const PuzzleGame = () => {
       navigate("/");
       return;
     }
-    originalImageRef.current = imageData;
 
     splitImage(imageData, COLS, ROWS).then((pieces) => {
       setTrayPieces(pieces);
@@ -50,8 +48,7 @@ const PuzzleGame = () => {
     const toMove = trayPieces.filter((p) => selectedIds.has(p.id));
     const remaining = trayPieces.filter((p) => !selectedIds.has(p.id));
 
-    // Place pieces randomly on the board
-    const placed = toMove.map((p, i) => ({
+    const placed = toMove.map((p) => ({
       ...p,
       selected: false,
       x: 50 + Math.random() * 300,
@@ -65,8 +62,7 @@ const PuzzleGame = () => {
   }, [selectedIds, trayPieces]);
 
   const clearStrayPieces = useCallback(() => {
-    // Move unconnected pieces back to tray
-    const returned = boardPieces.map((p) => ({ ...p, x: null, y: null, selected: false }));
+    const returned = boardPieces.map((p) => ({ ...p, x: null, y: null, selected: false, groupId: p.id }));
     setTrayPieces((prev) => [...prev, ...returned]);
     setBoardPieces([]);
     toast.info("Alla bitar flyttade tillbaka till lådan");
@@ -77,10 +73,26 @@ const PuzzleGame = () => {
     navigate("/");
   }, [navigate]);
 
-  const updatePiecePosition = useCallback((id: number, x: number, y: number) => {
+  const updateGroupPosition = useCallback((groupId: number, dx: number, dy: number) => {
     setBoardPieces((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, x, y } : p))
+      prev.map((p) =>
+        p.groupId === groupId && p.x !== null && p.y !== null
+          ? { ...p, x: p.x + dx, y: p.y + dy }
+          : p
+      )
     );
+  }, []);
+
+  const handlePieceDrop = useCallback((_id: number) => {
+    setBoardPieces((prev) => {
+      const snapped = trySnap(prev);
+      // Check if puzzle is complete (all same group)
+      const groups = new Set(snapped.map((p) => p.groupId));
+      if (groups.size === 1 && snapped.length === COLS * ROWS) {
+        setTimeout(() => toast.success("🎉 Pusslet är klart!"), 300);
+      }
+      return snapped;
+    });
   }, []);
 
   if (loading) {
@@ -105,7 +117,8 @@ const PuzzleGame = () => {
       />
       <PuzzleBoard
         pieces={boardPieces}
-        onUpdatePosition={updatePiecePosition}
+        onUpdateGroupPosition={updateGroupPosition}
+        onPieceDrop={handlePieceDrop}
         cols={COLS}
         rows={ROWS}
       />

@@ -3,15 +3,14 @@ export interface PuzzlePiece {
   row: number;
   col: number;
   imageDataUrl: string;
-  // Display size (scaled down for rendering)
   displayWidth: number;
   displayHeight: number;
-  // Offset from grid origin to piece top-left (due to tab overhang)
   offsetX: number;
   offsetY: number;
   selected: boolean;
   x: number | null;
   y: number | null;
+  groupId: number; // pieces snapped together share a groupId
 }
 
 // Tabs config: +1 = tab protrudes in positive direction, -1 = blank
@@ -176,8 +175,9 @@ export function splitImage(
 
           // Calculate display size (scale down for screen)
           const scale = 3;
+          const pieceId = r * cols + c;
           pieces.push({
-            id: r * cols + c,
+            id: pieceId,
             row: r,
             col: c,
             imageDataUrl: canvas.toDataURL("image/png"),
@@ -188,6 +188,7 @@ export function splitImage(
             selected: false,
             x: null,
             y: null,
+            groupId: pieceId,
           });
         }
       }
@@ -203,4 +204,65 @@ export function splitImage(
     img.onerror = reject;
     img.src = imageDataUrl;
   });
+}
+
+const SNAP_THRESHOLD = 18;
+
+/** Try to snap a dropped piece to its neighbors. Returns updated board pieces with merged groups. */
+export function trySnap(pieces: PuzzlePiece[]): PuzzlePiece[] {
+  if (pieces.length < 2) return pieces;
+
+  // Cell size (piece size without tab overhang)
+  const sample = pieces[0];
+  const cellW = sample.displayWidth - 2 * sample.offsetX;
+  const cellH = sample.displayHeight - 2 * sample.offsetY;
+
+  let updated = pieces.map((p) => ({ ...p }));
+  let changed = true;
+
+  // Iterate until no more snaps happen
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < updated.length; i++) {
+      const a = updated[i];
+      if (a.x === null || a.y === null) continue;
+
+      for (let j = i + 1; j < updated.length; j++) {
+        const b = updated[j];
+        if (b.x === null || b.y === null) continue;
+        if (a.groupId === b.groupId) continue;
+
+        // Check if they are grid neighbors
+        const dr = b.row - a.row;
+        const dc = b.col - a.col;
+        if (Math.abs(dr) + Math.abs(dc) !== 1) continue;
+
+        // Expected position of b relative to a
+        const expectedBx = a.x + dc * cellW;
+        const expectedBy = a.y + dr * cellH;
+        const dx = b.x - expectedBx;
+        const dy = b.y - expectedBy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < SNAP_THRESHOLD) {
+          // Snap: move b's entire group to align with a
+          const oldGroupId = b.groupId;
+          const newGroupId = a.groupId;
+          const shiftX = expectedBx - b.x;
+          const shiftY = expectedBy - b.y;
+
+          for (const p of updated) {
+            if (p.groupId === oldGroupId) {
+              p.groupId = newGroupId;
+              if (p.x !== null) p.x += shiftX;
+              if (p.y !== null) p.y += shiftY;
+            }
+          }
+          changed = true;
+        }
+      }
+    }
+  }
+
+  return updated;
 }
