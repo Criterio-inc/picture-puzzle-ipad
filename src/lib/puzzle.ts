@@ -182,19 +182,39 @@ export function splitImage(
           );
           ctx.restore();
 
-          // Border with slight shadow effect
+          // 3D effect: dark shadow on bottom-right edges
           ctx.save();
           drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
-          ctx.strokeStyle = "rgba(0,0,0,0.2)";
+          ctx.clip();
+          ctx.shadowColor = "rgba(0,0,0,0.35)";
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
+          drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
+          ctx.strokeStyle = "rgba(0,0,0,0.25)";
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.restore();
+
+          // 3D effect: light highlight on top-left edges
+          ctx.save();
+          drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
+          ctx.clip();
+          ctx.shadowColor = "rgba(255,255,255,0.4)";
+          ctx.shadowBlur = 3;
+          ctx.shadowOffsetX = -1.5;
+          ctx.shadowOffsetY = -1.5;
+          drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
+          ctx.strokeStyle = "rgba(255,255,255,0.2)";
           ctx.lineWidth = 1.5;
           ctx.stroke();
           ctx.restore();
 
-          // Inner highlight
+          // Outer border
           ctx.save();
           drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
-          ctx.strokeStyle = "rgba(255,255,255,0.15)";
-          ctx.lineWidth = 0.5;
+          ctx.strokeStyle = "rgba(0,0,0,0.15)";
+          ctx.lineWidth = 1;
           ctx.stroke();
           ctx.restore();
 
