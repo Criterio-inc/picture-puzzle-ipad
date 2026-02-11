@@ -173,7 +173,7 @@ export function splitImage(
           ctx.stroke();
           ctx.restore();
 
-          const scale = 3;
+          const scale = 1.5;
           const pieceId = r * cols + c;
           pieces.push({
             id: pieceId,
