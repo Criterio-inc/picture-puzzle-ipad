@@ -3,18 +3,26 @@ import { PuzzlePiece } from "@/lib/puzzle";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
 
+interface GuideRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 interface PuzzleBoardProps {
   pieces: PuzzlePiece[];
   onUpdateGroupPosition: (groupId: number, dx: number, dy: number) => void;
   onPieceDrop: (id: number) => void;
   cols: number;
   rows: number;
+  guideRect: GuideRect | null;
 }
 
 const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 2;
 
-const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop }: PuzzleBoardProps) => {
+const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect }: PuzzleBoardProps) => {
   const boardRef = useRef<HTMLDivElement>(null);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [draggingGroupId, setDraggingGroupId] = useState<number | null>(null);
@@ -29,13 +37,18 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop }: PuzzleBoard
 
   const handlePointerDown = useCallback((e: React.PointerEvent, piece: PuzzlePiece) => {
     e.stopPropagation();
+    if (piece.locked) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     if (piece.x === null || piece.y === null) return;
+
+    // Check if any piece in this group is locked
+    const groupLocked = pieces.some((p) => p.groupId === piece.groupId && p.locked);
+    if (groupLocked) return;
 
     lastPointerRef.current = { x: e.clientX, y: e.clientY };
     setDraggingId(piece.id);
     setDraggingGroupId(piece.groupId);
-  }, []);
+  }, [pieces]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (draggingGroupId === null) return;
@@ -162,6 +175,21 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop }: PuzzleBoard
           height: "6000px",
         }}
       >
+        {/* Guide rectangle - puzzle border */}
+        {guideRect && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: guideRect.x,
+              top: guideRect.y,
+              width: guideRect.width,
+              height: guideRect.height,
+              border: "2px dashed rgba(255,255,255,0.35)",
+              borderRadius: 2,
+            }}
+          />
+        )}
+
         {pieces.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-sm text-muted-foreground" style={{ transform: `scale(${1 / zoom})` }}>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { PuzzlePiece, splitImage, trySnap, serializePieces, deserializePieces } from "@/lib/puzzle";
+import { PuzzlePiece, splitImage, trySnap, trySnapToGuide, getGuideRect, serializePieces, deserializePieces } from "@/lib/puzzle";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import PuzzleHeader from "@/components/puzzle/PuzzleHeader";
@@ -140,18 +140,22 @@ const PuzzleGame = () => {
   }, [navigate]);
 
   const updateGroupPosition = useCallback((groupId: number, dx: number, dy: number) => {
-    setBoardPieces((prev) =>
-      prev.map((p) =>
+    setBoardPieces((prev) => {
+      // Don't move locked groups
+      const groupLocked = prev.some((p) => p.groupId === groupId && p.locked);
+      if (groupLocked) return prev;
+      return prev.map((p) =>
         p.groupId === groupId && p.x !== null && p.y !== null
           ? { ...p, x: p.x + dx, y: p.y + dy }
           : p
-      )
-    );
+      );
+    });
   }, []);
 
   const handlePieceDrop = useCallback((_id: number) => {
     setBoardPieces((prev) => {
-      const snapped = trySnap(prev);
+      let snapped = trySnap(prev);
+      snapped = trySnapToGuide(snapped, COLS, ROWS);
       const groups = new Set(snapped.map((p) => p.groupId));
       if (groups.size === 1 && snapped.length === COLS * ROWS) {
         setTimeout(() => toast.success("🎉 Pusslet är klart!"), 300);
@@ -227,6 +231,7 @@ const PuzzleGame = () => {
         onPieceDrop={handlePieceDrop}
         cols={COLS}
         rows={ROWS}
+        guideRect={getGuideRect(allPiecesRef.current, COLS, ROWS)}
       />
       <PieceTray
         pieces={trayPieces}
