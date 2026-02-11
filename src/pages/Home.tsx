@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Puzzle, Upload, LogOut, Image, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 interface SavedGame {
   id: string;
@@ -70,6 +71,7 @@ const Home = () => {
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
+      <InstallPrompt />
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
