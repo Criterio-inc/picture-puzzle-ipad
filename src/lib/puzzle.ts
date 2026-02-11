@@ -59,12 +59,12 @@ function drawJigsawSide(
   const nx = -uy * tabDir;
   const ny = ux * tabDir;
 
-  const neckStart = 0.38;
-  const neckEnd = 0.62;
+  const neckStart = 0.40;
+  const neckEnd = 0.60;
   const neckInset = 0;
-  const neckWidth = len * 0.14;
-  const tabHeight = len * 0.34;
-  const headSpread = len * 0.30;
+  const neckWidth = len * 0.16;
+  const tabHeight = len * 0.38;
+  const headSpread = len * 0.34;
 
   // 1. Smooth curve into neck start (no hard corner)
   const ns_x = x0 + dx * neckStart;
@@ -73,29 +73,29 @@ function drawJigsawSide(
 
   // 2. Gentle neck opening with soft inward curve
   ctx.bezierCurveTo(
-    x0 + dx * (neckStart + 0.02) - nx * neckInset, y0 + dy * (neckStart + 0.02) - ny * neckInset,
-    x0 + dx * (neckStart + 0.06) + nx * neckWidth * 0.5, y0 + dy * (neckStart + 0.06) + ny * neckWidth * 0.5,
-    x0 + dx * 0.42 + nx * neckWidth, y0 + dy * 0.42 + ny * neckWidth
+    x0 + dx * (neckStart + 0.01), y0 + dy * (neckStart + 0.01),
+    x0 + dx * (neckStart + 0.04) + nx * neckWidth * 0.6, y0 + dy * (neckStart + 0.04) + ny * neckWidth * 0.6,
+    x0 + dx * 0.44 + nx * neckWidth, y0 + dy * 0.44 + ny * neckWidth
   );
 
   // 3. Left side of head: wide smooth circular arc
   ctx.bezierCurveTo(
-    x0 + dx * 0.28 - ux * headSpread * 0.3 + nx * tabHeight * 0.85, y0 + dy * 0.28 - uy * headSpread * 0.3 + ny * tabHeight * 0.85,
-    x0 + dx * 0.34 - ux * headSpread * 0.15 + nx * tabHeight * 1.15, y0 + dy * 0.34 - uy * headSpread * 0.15 + ny * tabHeight * 1.15,
+    x0 + dx * 0.26 - ux * headSpread * 0.35 + nx * tabHeight * 0.90, y0 + dy * 0.26 - uy * headSpread * 0.35 + ny * tabHeight * 0.90,
+    x0 + dx * 0.32 - ux * headSpread * 0.18 + nx * tabHeight * 1.18, y0 + dy * 0.32 - uy * headSpread * 0.18 + ny * tabHeight * 1.18,
     x0 + dx * 0.5 + nx * tabHeight, y0 + dy * 0.5 + ny * tabHeight
   );
 
   // 4. Right side of head: mirror smooth circular arc
   ctx.bezierCurveTo(
-    x0 + dx * 0.66 + ux * headSpread * 0.15 + nx * tabHeight * 1.15, y0 + dy * 0.66 + uy * headSpread * 0.15 + ny * tabHeight * 1.15,
-    x0 + dx * 0.72 + ux * headSpread * 0.3 + nx * tabHeight * 0.85, y0 + dy * 0.72 + uy * headSpread * 0.3 + ny * tabHeight * 0.85,
-    x0 + dx * 0.58 + nx * neckWidth, y0 + dy * 0.58 + ny * neckWidth
+    x0 + dx * 0.68 + ux * headSpread * 0.18 + nx * tabHeight * 1.18, y0 + dy * 0.68 + uy * headSpread * 0.18 + ny * tabHeight * 1.18,
+    x0 + dx * 0.74 + ux * headSpread * 0.35 + nx * tabHeight * 0.90, y0 + dy * 0.74 + uy * headSpread * 0.35 + ny * tabHeight * 0.90,
+    x0 + dx * 0.56 + nx * neckWidth, y0 + dy * 0.56 + ny * neckWidth
   );
 
   // 5. Gentle neck closing with soft inward curve
   ctx.bezierCurveTo(
-    x0 + dx * (neckEnd - 0.06) + nx * neckWidth * 0.5, y0 + dy * (neckEnd - 0.06) + ny * neckWidth * 0.5,
-    x0 + dx * (neckEnd - 0.02) - nx * neckInset, y0 + dy * (neckEnd - 0.02) - ny * neckInset,
+    x0 + dx * (neckEnd - 0.04) + nx * neckWidth * 0.6, y0 + dy * (neckEnd - 0.04) + ny * neckWidth * 0.6,
+    x0 + dx * (neckEnd - 0.01), y0 + dy * (neckEnd - 0.01),
     x0 + dx * neckEnd, y0 + dy * neckEnd
   );
 
