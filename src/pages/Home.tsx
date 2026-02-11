@@ -95,10 +95,10 @@ const [processing, setProcessing] = useState(false);
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col gap-8 p-6 overflow-y-auto">
+      <main className="flex flex-1 flex-col gap-8 p-6 overflow-y-auto landscape:flex-row landscape:items-start">
         {/* Saved games */}
         {!loadingGames && savedGames.length > 0 && (
-          <section>
+          <section className="landscape:flex-1 landscape:min-w-0">
             <h2 className="mb-3 text-lg font-semibold text-foreground">Påbörjade pussel</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
               {savedGames.map((game) => {
@@ -150,7 +150,7 @@ const [processing, setProcessing] = useState(false);
         )}
 
         {/* New puzzle */}
-        <section className="flex flex-col items-center gap-6 py-8">
+        <section className="flex flex-col items-center gap-6 py-8 landscape:flex-1 landscape:py-4 landscape:min-w-[280px]">
           <div className="flex flex-col items-center gap-3 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-accent">
               <Image className="h-10 w-10 text-accent-foreground" />
