@@ -27,7 +27,6 @@ const PieceTray = ({
         expanded ? "h-[55dvh]" : "h-[140px]"
       }`}
     >
-      {/* Handle bar */}
       <button
         onClick={onToggleExpand}
         className="flex items-center justify-center py-1.5 text-muted-foreground active:bg-muted"
@@ -35,9 +34,8 @@ const PieceTray = ({
         {expanded ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
       </button>
 
-      {/* Pieces grid */}
-      <div className="flex-1 overflow-y-auto px-2 pb-2">
-        <div className="grid grid-cols-8 gap-1">
+      <div className="flex-1 overflow-y-auto px-1 pb-2">
+        <div className="flex flex-wrap gap-0">
           {pieces.map((piece) => {
             const isSelected = selectedIds.has(piece.id);
             return (
@@ -48,12 +46,13 @@ const PieceTray = ({
                     ? "border-piece-selected bg-piece-hover"
                     : "border-transparent"
                 }`}
+                style={{ width: piece.displayWidth * 0.8, height: piece.displayHeight * 0.8 }}
                 onClick={() => onToggleSelect(piece.id)}
               >
                 <img
                   src={piece.imageDataUrl}
                   alt=""
-                  className="block w-full"
+                  className="block h-full w-full object-contain"
                   draggable={false}
                 />
                 {isSelected && (
@@ -69,13 +68,9 @@ const PieceTray = ({
         </div>
       </div>
 
-      {/* Send button */}
       {selectedCount > 0 && (
         <div className="px-3 pb-3">
-          <Button
-            className="w-full gap-2"
-            onClick={onSendToBoard}
-          >
+          <Button className="w-full gap-2" onClick={onSendToBoard}>
             <Send className="h-4 w-4" />
             Skicka ({selectedCount})
           </Button>
