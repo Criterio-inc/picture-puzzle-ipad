@@ -11,7 +11,10 @@ export interface PuzzlePiece {
   x: number | null;
   y: number | null;
   groupId: number;
+  locked: boolean;
 }
+
+export const PUZZLE_ORIGIN = { x: 800, y: 800 };
 
 interface TabsConfig {
   horizontal: number[][];
@@ -188,6 +191,7 @@ export function splitImage(
             x: null,
             y: null,
             groupId: pieceId,
+            locked: false,
           });
         }
       }
@@ -260,6 +264,77 @@ export function trySnap(pieces: PuzzlePiece[]): PuzzlePiece[] {
   return updated;
 }
 
+/** Snap pieces to the guide border if close to their correct absolute position.
+ *  Lock groups containing edge pieces when snapped correctly. */
+export function trySnapToGuide(pieces: PuzzlePiece[], cols: number, rows: number): PuzzlePiece[] {
+  if (pieces.length === 0) return pieces;
+
+  const sample = pieces[0];
+  const cellW = sample.displayWidth - 2 * sample.offsetX;
+  const cellH = sample.displayHeight - 2 * sample.offsetY;
+  const offsetX = sample.offsetX;
+  const offsetY = sample.offsetY;
+
+  let updated = pieces.map((p) => ({ ...p }));
+
+  // Group pieces by groupId
+  const groups = new Map<number, typeof updated>();
+  for (const p of updated) {
+    if (!groups.has(p.groupId)) groups.set(p.groupId, []);
+    groups.get(p.groupId)!.push(p);
+  }
+
+  for (const [groupId, groupPieces] of groups) {
+    if (groupPieces[0].locked) continue;
+
+    // Check if group has at least one edge piece
+    const hasEdgePiece = groupPieces.some(
+      (gp) => gp.row === 0 || gp.row === rows - 1 || gp.col === 0 || gp.col === cols - 1
+    );
+    if (!hasEdgePiece) continue;
+
+    for (const p of groupPieces) {
+      if (p.x === null || p.y === null) continue;
+
+      const correctX = PUZZLE_ORIGIN.x - offsetX + p.col * cellW;
+      const correctY = PUZZLE_ORIGIN.y - offsetY + p.row * cellH;
+      const dx = p.x - correctX;
+      const dy = p.y - correctY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < SNAP_THRESHOLD) {
+        const shiftX = correctX - p.x;
+        const shiftY = correctY - p.y;
+
+        for (const gp of updated) {
+          if (gp.groupId === groupId) {
+            if (gp.x !== null) gp.x += shiftX;
+            if (gp.y !== null) gp.y += shiftY;
+            gp.locked = true;
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  return updated;
+}
+
+/** Compute guide rectangle dimensions */
+export function getGuideRect(pieces: PuzzlePiece[], cols: number, rows: number) {
+  if (pieces.length === 0) return null;
+  const sample = pieces[0];
+  const cellW = sample.displayWidth - 2 * sample.offsetX;
+  const cellH = sample.displayHeight - 2 * sample.offsetY;
+  return {
+    x: PUZZLE_ORIGIN.x,
+    y: PUZZLE_ORIGIN.y,
+    width: cols * cellW,
+    height: rows * cellH,
+  };
+}
+
 /** Serialize pieces for DB storage (strip imageDataUrl to save space) */
 export function serializePieces(pieces: PuzzlePiece[]): object[] {
   return pieces.map(({ imageDataUrl, ...rest }) => rest);
@@ -273,6 +348,7 @@ export function deserializePieces(
   const imageMap = new Map(allPieces.map((p) => [p.id, p.imageDataUrl]));
   return saved.map((s) => ({
     ...s,
+    locked: (s as any).locked ?? false,
     imageDataUrl: imageMap.get(s.id) ?? "",
   }));
 }
