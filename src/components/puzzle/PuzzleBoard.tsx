@@ -177,19 +177,34 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect }: 
       >
         {/* Guide rectangle - puzzle border */}
         {guideRect && (
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              left: guideRect.x,
-              top: guideRect.y,
-              width: guideRect.width,
-              height: guideRect.height,
-              border: "2px dashed rgba(255,255,255,0.45)",
-              borderRadius: 2,
-              background: "rgba(255,255,255,0.04)",
-              boxShadow: "inset 0 0 40px rgba(255,255,255,0.06), 0 0 15px rgba(255,255,255,0.05)",
-            }}
-          />
+          <>
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                left: guideRect.x,
+                top: guideRect.y,
+                width: guideRect.width,
+                height: guideRect.height,
+                border: "3px dashed rgba(255,255,255,0.7)",
+                borderRadius: 3,
+                background: "rgba(255,255,255,0.07)",
+                boxShadow: "inset 0 0 60px rgba(255,255,255,0.10), 0 0 20px rgba(255,255,255,0.08)",
+              }}
+            />
+            {/* Corner markers */}
+            {[
+              { left: guideRect.x - 4, top: guideRect.y - 4, borderLeft: "4px solid rgba(255,255,255,0.8)", borderTop: "4px solid rgba(255,255,255,0.8)" },
+              { left: guideRect.x + guideRect.width - 16, top: guideRect.y - 4, borderRight: "4px solid rgba(255,255,255,0.8)", borderTop: "4px solid rgba(255,255,255,0.8)" },
+              { left: guideRect.x - 4, top: guideRect.y + guideRect.height - 16, borderLeft: "4px solid rgba(255,255,255,0.8)", borderBottom: "4px solid rgba(255,255,255,0.8)" },
+              { left: guideRect.x + guideRect.width - 16, top: guideRect.y + guideRect.height - 16, borderRight: "4px solid rgba(255,255,255,0.8)", borderBottom: "4px solid rgba(255,255,255,0.8)" },
+            ].map((style, i) => (
+              <div
+                key={i}
+                className="absolute pointer-events-none"
+                style={{ ...style, width: 20, height: 20 }}
+              />
+            ))}
+          </>
         )}
 
         {pieces.length === 0 && (

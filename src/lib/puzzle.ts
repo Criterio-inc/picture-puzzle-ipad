@@ -39,7 +39,7 @@ function generateTabsConfig(rows: number, cols: number): TabsConfig {
   return { horizontal, vertical };
 }
 
-// Classic jigsaw tab shape with rounder, more natural curves
+// Ravensburger-style jigsaw tab: narrow neck, large round mushroom head
 function drawJigsawSide(
   ctx: CanvasRenderingContext2D,
   x0: number, y0: number,
@@ -54,47 +54,50 @@ function drawJigsawSide(
   const dx = x1 - x0;
   const dy = y1 - y0;
   const len = Math.sqrt(dx * dx + dy * dy);
-  // Unit vectors along and perpendicular to the edge
   const ux = dx / len;
   const uy = dy / len;
   const nx = -uy * tabDir;
   const ny = ux * tabDir;
-  const tabHeight = len * 0.32;
-  const neckWidth = len * 0.12;
-  const headWidth = len * 0.24;
 
-  // Straight segment to neck start
-  ctx.lineTo(x0 + dx * 0.34, y0 + dy * 0.34);
+  const neckStart = 0.35;
+  const neckEnd = 0.65;
+  const neckInset = len * 0.04;
+  const neckWidth = len * 0.08;
+  const tabHeight = len * 0.30;
+  const headSpread = len * 0.22;
 
-  // Neck inward curve (slight pinch)
+  // 1. Straight to neck start
+  ctx.lineTo(x0 + dx * neckStart, y0 + dy * neckStart);
+
+  // 2. Neck: slight inward pinch then out to neck opening
   ctx.bezierCurveTo(
-    x0 + dx * 0.36 + nx * neckWidth * 0.2, y0 + dy * 0.36 + ny * neckWidth * 0.2,
-    x0 + dx * 0.38 - nx * neckWidth * 0.3, y0 + dy * 0.38 - ny * neckWidth * 0.3,
-    x0 + dx * 0.38 + nx * neckWidth, y0 + dy * 0.38 + ny * neckWidth
+    x0 + dx * (neckStart + 0.02) - nx * neckInset, y0 + dy * (neckStart + 0.02) - ny * neckInset,
+    x0 + dx * (neckStart + 0.04) + nx * neckWidth * 0.5, y0 + dy * (neckStart + 0.04) + ny * neckWidth * 0.5,
+    x0 + dx * 0.40 + nx * neckWidth, y0 + dy * 0.40 + ny * neckWidth
   );
 
-  // Left side of tab head (round bulge — wider, more circular)
+  // 3. Left side of head: sweep out wide and round
   ctx.bezierCurveTo(
-    x0 + dx * 0.30 - ux * headWidth * 0.5 + nx * tabHeight * 0.9, y0 + dy * 0.30 - uy * headWidth * 0.5 + ny * tabHeight * 0.9,
-    x0 + dx * 0.38 - ux * headWidth * 0.3 + nx * tabHeight * 1.15, y0 + dy * 0.38 - uy * headWidth * 0.3 + ny * tabHeight * 1.15,
+    x0 + dx * 0.32 - ux * headSpread * 0.2 + nx * tabHeight * 0.85, y0 + dy * 0.32 - uy * headSpread * 0.2 + ny * tabHeight * 0.85,
+    x0 + dx * 0.38 - ux * headSpread * 0.15 + nx * tabHeight * 1.1, y0 + dy * 0.38 - uy * headSpread * 0.15 + ny * tabHeight * 1.1,
     x0 + dx * 0.5 + nx * tabHeight, y0 + dy * 0.5 + ny * tabHeight
   );
 
-  // Right side of tab head (round bulge, mirror — wider, more circular)
+  // 4. Right side of head: mirror sweep back
   ctx.bezierCurveTo(
-    x0 + dx * 0.62 + ux * headWidth * 0.3 + nx * tabHeight * 1.15, y0 + dy * 0.62 + uy * headWidth * 0.3 + ny * tabHeight * 1.15,
-    x0 + dx * 0.70 + ux * headWidth * 0.5 + nx * tabHeight * 0.9, y0 + dy * 0.70 + uy * headWidth * 0.5 + ny * tabHeight * 0.9,
-    x0 + dx * 0.62 + nx * neckWidth, y0 + dy * 0.62 + ny * neckWidth
+    x0 + dx * 0.62 + ux * headSpread * 0.15 + nx * tabHeight * 1.1, y0 + dy * 0.62 + uy * headSpread * 0.15 + ny * tabHeight * 1.1,
+    x0 + dx * 0.68 + ux * headSpread * 0.2 + nx * tabHeight * 0.85, y0 + dy * 0.68 + uy * headSpread * 0.2 + ny * tabHeight * 0.85,
+    x0 + dx * 0.60 + nx * neckWidth, y0 + dy * 0.60 + ny * neckWidth
   );
 
-  // Neck outward curve back to edge
+  // 5. Neck back: from neck opening, pinch inward, then back to edge
   ctx.bezierCurveTo(
-    x0 + dx * 0.62 - nx * neckWidth * 0.3, y0 + dy * 0.62 - ny * neckWidth * 0.3,
-    x0 + dx * 0.64 + nx * neckWidth * 0.2, y0 + dy * 0.64 + ny * neckWidth * 0.2,
-    x0 + dx * 0.66, y0 + dy * 0.66
+    x0 + dx * (neckEnd - 0.04) + nx * neckWidth * 0.5, y0 + dy * (neckEnd - 0.04) + ny * neckWidth * 0.5,
+    x0 + dx * (neckEnd - 0.02) - nx * neckInset, y0 + dy * (neckEnd - 0.02) - ny * neckInset,
+    x0 + dx * neckEnd, y0 + dy * neckEnd
   );
 
-  // Straight to end
+  // 6. Straight to end
   ctx.lineTo(x1, y1);
 }
 
@@ -121,6 +124,22 @@ function getTabDirs(row: number, col: number, rows: number, cols: number, tabs: 
   return { top, right, bottom, left };
 }
 
+const MIN_DIMENSION = 2400;
+
+function normalizeImage(img: HTMLImageElement): HTMLCanvasElement | HTMLImageElement {
+  const maxSide = Math.max(img.width, img.height);
+  if (maxSide >= MIN_DIMENSION) return img;
+  const scale = MIN_DIMENSION / maxSide;
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas;
+}
+
 export function splitImage(
   imageDataUrl: string,
   cols: number,
@@ -129,8 +148,11 @@ export function splitImage(
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const pieceW = Math.floor(img.width / cols);
-      const pieceH = Math.floor(img.height / rows);
+      const src = normalizeImage(img);
+      const srcW = src.width;
+      const srcH = src.height;
+      const pieceW = Math.floor(srcW / cols);
+      const pieceH = Math.floor(srcH / rows);
       const tabW = Math.ceil(pieceW * 0.35);
       const tabH = Math.ceil(pieceH * 0.35);
       const pieces: PuzzlePiece[] = [];
@@ -154,7 +176,7 @@ export function splitImage(
           ctx.clip();
 
           ctx.drawImage(
-            img,
+            src,
             c * pieceW - tabW, r * pieceH - tabH, canvasW, canvasH,
             0, 0, canvasW, canvasH
           );
