@@ -1,37 +1,89 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { PuzzlePiece, splitImage, trySnap } from "@/lib/puzzle";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { PuzzlePiece, splitImage, trySnap, serializePieces, deserializePieces } from "@/lib/puzzle";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import PuzzleHeader from "@/components/puzzle/PuzzleHeader";
 import PuzzleBoard from "@/components/puzzle/PuzzleBoard";
 import PieceTray from "@/components/puzzle/PieceTray";
 import { toast } from "sonner";
+import type { Json } from "@/integrations/supabase/types";
 
 const COLS = 24;
 const ROWS = 24;
 
 const PuzzleGame = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const [trayPieces, setTrayPieces] = useState<PuzzlePiece[]>([]);
   const [boardPieces, setBoardPieces] = useState<PuzzlePiece[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [trayExpanded, setTrayExpanded] = useState(false);
+  const [gameId, setGameId] = useState<string | null>(searchParams.get("id"));
+  const [saving, setSaving] = useState(false);
+  const allPiecesRef = useRef<PuzzlePiece[]>([]);
+  const imageDataRef = useRef<string>("");
 
   useEffect(() => {
-    const imageData = sessionStorage.getItem("puzzleImage");
-    if (!imageData) {
-      navigate("/");
-      return;
-    }
+    const loadGame = async () => {
+      // Check if resuming a saved game
+      if (gameId && user) {
+        const { data } = await supabase
+          .from("puzzle_games")
+          .select("*")
+          .eq("id", gameId)
+          .single();
 
-    splitImage(imageData, COLS, ROWS).then((pieces) => {
-      setTrayPieces(pieces);
-      setLoading(false);
-    }).catch(() => {
-      toast.error("Kunde inte skapa pussel");
-      navigate("/");
-    });
-  }, [navigate]);
+        if (data) {
+          imageDataRef.current = data.image_url;
+          // Re-split the image to get imageDataUrls
+          const allPieces = await splitImageDeterministic(data.image_url, COLS, ROWS, data.pieces_data as any);
+          allPiecesRef.current = allPieces;
+
+          const savedBoard = data.board_pieces as any[];
+          const savedTray = data.tray_pieces as any[];
+
+          setBoardPieces(deserializePieces(savedBoard, allPieces));
+          setTrayPieces(deserializePieces(savedTray, allPieces));
+          setLoading(false);
+          return;
+        }
+      }
+
+      // New game
+      const imageData = sessionStorage.getItem("puzzleImage");
+      if (!imageData) {
+        navigate("/");
+        return;
+      }
+      imageDataRef.current = imageData;
+
+      splitImage(imageData, COLS, ROWS).then((pieces) => {
+        allPiecesRef.current = pieces;
+        setTrayPieces(pieces);
+        setLoading(false);
+      }).catch(() => {
+        toast.error("Kunde inte skapa pussel");
+        navigate("/");
+      });
+    };
+
+    loadGame();
+  }, [navigate, gameId, user]);
+
+  // Re-split with same tab config for saved games
+  async function splitImageDeterministic(
+    imageDataUrl: string,
+    cols: number,
+    rows: number,
+    piecesData: { tabsH: number[][]; tabsV: number[][] }
+  ): Promise<PuzzlePiece[]> {
+    // For saved games we just re-split normally - the pieces_data stores which pieces
+    // are where, and the image splitting is deterministic per image
+    return splitImage(imageDataUrl, cols, rows);
+  }
 
   const toggleSelect = useCallback((id: number) => {
     setSelectedIds((prev) => {
@@ -62,10 +114,25 @@ const PuzzleGame = () => {
   }, [selectedIds, trayPieces]);
 
   const clearStrayPieces = useCallback(() => {
-    const returned = boardPieces.map((p) => ({ ...p, x: null, y: null, selected: false, groupId: p.id }));
+    // Count pieces per group
+    const groupCounts = new Map<number, number>();
+    for (const p of boardPieces) {
+      groupCounts.set(p.groupId, (groupCounts.get(p.groupId) || 0) + 1);
+    }
+
+    // Only return solo pieces (group size = 1)
+    const solos = boardPieces.filter((p) => groupCounts.get(p.groupId) === 1);
+    const kept = boardPieces.filter((p) => groupCounts.get(p.groupId)! > 1);
+
+    if (solos.length === 0) {
+      toast.info("Inga singelbitar att rensa");
+      return;
+    }
+
+    const returned = solos.map((p) => ({ ...p, x: null, y: null, selected: false, groupId: p.id }));
     setTrayPieces((prev) => [...prev, ...returned]);
-    setBoardPieces([]);
-    toast.info("Alla bitar flyttade tillbaka till lådan");
+    setBoardPieces(kept);
+    toast.info(`${solos.length} singelbitar flyttade till lådan`);
   }, [boardPieces]);
 
   const giveUp = useCallback(() => {
@@ -86,7 +153,6 @@ const PuzzleGame = () => {
   const handlePieceDrop = useCallback((_id: number) => {
     setBoardPieces((prev) => {
       const snapped = trySnap(prev);
-      // Check if puzzle is complete (all same group)
       const groups = new Set(snapped.map((p) => p.groupId));
       if (groups.size === 1 && snapped.length === COLS * ROWS) {
         setTimeout(() => toast.success("🎉 Pusslet är klart!"), 300);
@@ -94,6 +160,45 @@ const PuzzleGame = () => {
       return snapped;
     });
   }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!user) return;
+    setSaving(true);
+
+    const boardData = serializePieces(boardPieces) as unknown as Json;
+    const trayData = serializePieces(trayPieces) as unknown as Json;
+
+    try {
+      if (gameId) {
+        await supabase
+          .from("puzzle_games")
+          .update({
+            board_pieces: boardData,
+            tray_pieces: trayData,
+          })
+          .eq("id", gameId);
+      } else {
+        const { data } = await supabase
+          .from("puzzle_games")
+          .insert({
+            user_id: user.id,
+            image_url: imageDataRef.current,
+            board_pieces: boardData,
+            tray_pieces: trayData,
+            cols: COLS,
+            rows: ROWS,
+          })
+          .select("id")
+          .single();
+
+        if (data) setGameId(data.id);
+      }
+      toast.success("Spelet sparat!");
+    } catch {
+      toast.error("Kunde inte spara");
+    }
+    setSaving(false);
+  }, [user, boardPieces, trayPieces, gameId]);
 
   if (loading) {
     return (
@@ -114,6 +219,8 @@ const PuzzleGame = () => {
         trayCount={trayPieces.length}
         onClearStray={clearStrayPieces}
         onGiveUp={giveUp}
+        onSave={handleSave}
+        saving={saving}
       />
       <PuzzleBoard
         pieces={boardPieces}

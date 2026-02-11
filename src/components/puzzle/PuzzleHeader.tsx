@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Eraser, Flag } from "lucide-react";
+import { ArrowLeft, Eraser, Flag, Save } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface PuzzleHeaderProps {
@@ -8,9 +8,11 @@ interface PuzzleHeaderProps {
   trayCount: number;
   onClearStray: () => void;
   onGiveUp: () => void;
+  onSave: () => void;
+  saving: boolean;
 }
 
-const PuzzleHeader = ({ totalPieces, boardCount, trayCount, onClearStray, onGiveUp }: PuzzleHeaderProps) => {
+const PuzzleHeader = ({ totalPieces, boardCount, trayCount, onClearStray, onGiveUp, onSave, saving }: PuzzleHeaderProps) => {
   const navigate = useNavigate();
 
   return (
@@ -28,6 +30,16 @@ const PuzzleHeader = ({ totalPieces, boardCount, trayCount, onClearStray, onGive
         </div>
       </div>
       <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 text-xs"
+          onClick={onSave}
+          disabled={saving}
+        >
+          <Save className="h-3.5 w-3.5" />
+          {saving ? "Sparar..." : "Spara"}
+        </Button>
         <Button
           variant="ghost"
           size="sm"

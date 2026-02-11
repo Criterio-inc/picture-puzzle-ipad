@@ -10,15 +10,12 @@ export interface PuzzlePiece {
   selected: boolean;
   x: number | null;
   y: number | null;
-  groupId: number; // pieces snapped together share a groupId
+  groupId: number;
 }
 
-// Tabs config: +1 = tab protrudes in positive direction, -1 = blank
-// horizontalEdges[row][col] = tab direction for the edge below row
-// verticalEdges[row][col] = tab direction for the edge right of col
 interface TabsConfig {
-  horizontal: number[][]; // (rows-1) x cols
-  vertical: number[][];   // rows x (cols-1)
+  horizontal: number[][];
+  vertical: number[][];
 }
 
 function generateTabsConfig(rows: number, cols: number): TabsConfig {
@@ -39,9 +36,7 @@ function generateTabsConfig(rows: number, cols: number): TabsConfig {
   return { horizontal, vertical };
 }
 
-// Draw one side of a jigsaw piece path
-// from (x0,y0) to (x1,y1) with a tab in the perpendicular direction
-// tabDir: 0 = flat, +1 = tab outward, -1 = blank inward
+// Classic jigsaw tab shape with rounder, more natural curves
 function drawJigsawSide(
   ctx: CanvasRenderingContext2D,
   x0: number, y0: number,
@@ -56,40 +51,47 @@ function drawJigsawSide(
   const dx = x1 - x0;
   const dy = y1 - y0;
   const len = Math.sqrt(dx * dx + dy * dy);
-  // Normal direction (perpendicular)
-  const nx = -dy / len * tabDir;
-  const ny = dx / len * tabDir;
-  const tabSize = len * 0.22;
+  // Unit vectors along and perpendicular to the edge
+  const ux = dx / len;
+  const uy = dy / len;
+  const nx = -uy * tabDir;
+  const ny = ux * tabDir;
+  const tabHeight = len * 0.25;
+  const neckWidth = len * 0.08;
+  const headWidth = len * 0.16;
 
-  // Points along the edge
-  const p1x = x0 + dx * 0.35;
-  const p1y = y0 + dy * 0.35;
-  const p2x = x0 + dx * 0.65;
-  const p2y = y0 + dy * 0.65;
+  // Straight segment to neck start
+  ctx.lineTo(x0 + dx * 0.34, y0 + dy * 0.34);
 
-  // Neck points
-  const n1x = p1x + nx * tabSize * 0.1;
-  const n1y = p1y + ny * tabSize * 0.1;
-  const n2x = p2x + nx * tabSize * 0.1;
-  const n2y = p2y + ny * tabSize * 0.1;
-
-  // Tab tip control points
-  const t1x = p1x + nx * tabSize - dx * 0.05;
-  const t1y = p1y + ny * tabSize - dy * 0.05;
-  const t2x = p2x + nx * tabSize + dx * 0.05;
-  const t2y = p2y + ny * tabSize + dy * 0.05;
-
-  ctx.lineTo(p1x, p1y);
+  // Neck inward curve (slight pinch)
   ctx.bezierCurveTo(
-    n1x, n1y,
-    t1x, t1y,
-    x0 + dx * 0.5 + nx * tabSize, y0 + dy * 0.5 + ny * tabSize
+    x0 + dx * 0.36 + nx * neckWidth * 0.3, y0 + dy * 0.36 + ny * neckWidth * 0.3,
+    x0 + dx * 0.38 - nx * neckWidth * 0.5, y0 + dy * 0.38 - ny * neckWidth * 0.5,
+    x0 + dx * 0.38 + nx * neckWidth, y0 + dy * 0.38 + ny * neckWidth
   );
+
+  // Left side of tab head (round bulge)
   ctx.bezierCurveTo(
-    t2x, t2y,
-    n2x, n2y,
-    p2x, p2y
+    x0 + dx * 0.34 - ux * headWidth * 0.4 + nx * tabHeight, y0 + dy * 0.34 - uy * headWidth * 0.4 + ny * tabHeight,
+    x0 + dx * 0.42 - ux * headWidth * 0.1 + nx * tabHeight * 1.05, y0 + dy * 0.42 - uy * headWidth * 0.1 + ny * tabHeight * 1.05,
+    x0 + dx * 0.5 + nx * tabHeight, y0 + dy * 0.5 + ny * tabHeight
   );
+
+  // Right side of tab head (round bulge, mirror)
+  ctx.bezierCurveTo(
+    x0 + dx * 0.58 + ux * headWidth * 0.1 + nx * tabHeight * 1.05, y0 + dy * 0.58 + uy * headWidth * 0.1 + ny * tabHeight * 1.05,
+    x0 + dx * 0.66 + ux * headWidth * 0.4 + nx * tabHeight, y0 + dy * 0.66 + uy * headWidth * 0.4 + ny * tabHeight,
+    x0 + dx * 0.62 + nx * neckWidth, y0 + dy * 0.62 + ny * neckWidth
+  );
+
+  // Neck outward curve back to edge
+  ctx.bezierCurveTo(
+    x0 + dx * 0.62 - nx * neckWidth * 0.5, y0 + dy * 0.62 - ny * neckWidth * 0.5,
+    x0 + dx * 0.64 + nx * neckWidth * 0.3, y0 + dy * 0.64 + ny * neckWidth * 0.3,
+    x0 + dx * 0.66, y0 + dy * 0.66
+  );
+
+  // Straight to end
   ctx.lineTo(x1, y1);
 }
 
@@ -101,25 +103,17 @@ function drawPiecePath(
 ) {
   ctx.beginPath();
   ctx.moveTo(x, y);
-  // Top edge (left to right)
   drawJigsawSide(ctx, x, y, x + w, y, top);
-  // Right edge (top to bottom)
   drawJigsawSide(ctx, x + w, y, x + w, y + h, right);
-  // Bottom edge (right to left)
   drawJigsawSide(ctx, x + w, y + h, x, y + h, -bottom);
-  // Left edge (bottom to top)
   drawJigsawSide(ctx, x, y + h, x, y, -left);
   ctx.closePath();
 }
 
 function getTabDirs(row: number, col: number, rows: number, cols: number, tabs: TabsConfig) {
-  // Top
   const top = row === 0 ? 0 : -tabs.horizontal[row - 1][col];
-  // Bottom
   const bottom = row === rows - 1 ? 0 : tabs.horizontal[row][col];
-  // Left
   const left = col === 0 ? 0 : -tabs.vertical[row][col - 1];
-  // Right
   const right = col === cols - 1 ? 0 : tabs.vertical[row][col];
   return { top, right, bottom, left };
 }
@@ -134,12 +128,11 @@ export function splitImage(
     img.onload = () => {
       const pieceW = Math.floor(img.width / cols);
       const pieceH = Math.floor(img.height / rows);
-      const tabW = Math.ceil(pieceW * 0.25);
-      const tabH = Math.ceil(pieceH * 0.25);
+      const tabW = Math.ceil(pieceW * 0.28);
+      const tabH = Math.ceil(pieceH * 0.28);
       const pieces: PuzzlePiece[] = [];
       const tabs = generateTabsConfig(rows, cols);
 
-      // Canvas large enough for piece + tab overhang on all sides
       const canvasW = pieceW + tabW * 2;
       const canvasH = pieceH + tabH * 2;
       const canvas = document.createElement("canvas");
@@ -152,12 +145,11 @@ export function splitImage(
           ctx.clearRect(0, 0, canvasW, canvasH);
           const { top, right, bottom, left } = getTabDirs(r, c, rows, cols, tabs);
 
-          // Draw clipping path at center of canvas with tab overhang
+          // Clipping
           ctx.save();
           drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
           ctx.clip();
 
-          // Draw the source image offset so this piece's grid cell aligns with (tabW, tabH)
           ctx.drawImage(
             img,
             c * pieceW - tabW, r * pieceH - tabH, canvasW, canvasH,
@@ -165,15 +157,22 @@ export function splitImage(
           );
           ctx.restore();
 
-          // Draw subtle border along the piece edge
+          // Border with slight shadow effect
           ctx.save();
           drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
-          ctx.strokeStyle = "rgba(0,0,0,0.15)";
-          ctx.lineWidth = 1;
+          ctx.strokeStyle = "rgba(0,0,0,0.2)";
+          ctx.lineWidth = 1.5;
           ctx.stroke();
           ctx.restore();
 
-          // Calculate display size (scale down for screen)
+          // Inner highlight
+          ctx.save();
+          drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
+          ctx.strokeStyle = "rgba(255,255,255,0.15)";
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+          ctx.restore();
+
           const scale = 3;
           const pieceId = r * cols + c;
           pieces.push({
@@ -208,11 +207,9 @@ export function splitImage(
 
 const SNAP_THRESHOLD = 18;
 
-/** Try to snap a dropped piece to its neighbors. Returns updated board pieces with merged groups. */
 export function trySnap(pieces: PuzzlePiece[]): PuzzlePiece[] {
   if (pieces.length < 2) return pieces;
 
-  // Cell size (piece size without tab overhang)
   const sample = pieces[0];
   const cellW = sample.displayWidth - 2 * sample.offsetX;
   const cellH = sample.displayHeight - 2 * sample.offsetY;
@@ -220,7 +217,6 @@ export function trySnap(pieces: PuzzlePiece[]): PuzzlePiece[] {
   let updated = pieces.map((p) => ({ ...p }));
   let changed = true;
 
-  // Iterate until no more snaps happen
   while (changed) {
     changed = false;
     for (let i = 0; i < updated.length; i++) {
@@ -232,12 +228,10 @@ export function trySnap(pieces: PuzzlePiece[]): PuzzlePiece[] {
         if (b.x === null || b.y === null) continue;
         if (a.groupId === b.groupId) continue;
 
-        // Check if they are grid neighbors
         const dr = b.row - a.row;
         const dc = b.col - a.col;
         if (Math.abs(dr) + Math.abs(dc) !== 1) continue;
 
-        // Expected position of b relative to a
         const expectedBx = a.x + dc * cellW;
         const expectedBy = a.y + dr * cellH;
         const dx = b.x - expectedBx;
@@ -245,7 +239,6 @@ export function trySnap(pieces: PuzzlePiece[]): PuzzlePiece[] {
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist < SNAP_THRESHOLD) {
-          // Snap: move b's entire group to align with a
           const oldGroupId = b.groupId;
           const newGroupId = a.groupId;
           const shiftX = expectedBx - b.x;
@@ -265,4 +258,21 @@ export function trySnap(pieces: PuzzlePiece[]): PuzzlePiece[] {
   }
 
   return updated;
+}
+
+/** Serialize pieces for DB storage (strip imageDataUrl to save space) */
+export function serializePieces(pieces: PuzzlePiece[]): object[] {
+  return pieces.map(({ imageDataUrl, ...rest }) => rest);
+}
+
+/** Restore imageDataUrl from a full piece list */
+export function deserializePieces(
+  saved: Omit<PuzzlePiece, "imageDataUrl">[],
+  allPieces: PuzzlePiece[]
+): PuzzlePiece[] {
+  const imageMap = new Map(allPieces.map((p) => [p.id, p.imageDataUrl]));
+  return saved.map((s) => ({
+    ...s,
+    imageDataUrl: imageMap.get(s.id) ?? "",
+  }));
 }
