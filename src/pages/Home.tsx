@@ -64,7 +64,7 @@ const [processing, setProcessing] = useState(false);
       setProcessing(false);
     };
     reader.readAsDataURL(file);
-  }, [navigate]);
+  }, [navigate, difficulty]);
 
   const resumeGame = (id: string, imageUrl: string) => {
     sessionStorage.setItem("puzzleImage", imageUrl);
