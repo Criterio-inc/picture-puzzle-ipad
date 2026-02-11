@@ -1,32 +1,30 @@
 
 
-# Alla tre ändringar: Ravensburger-bitar, bildnormalisering, synligare guide
+# Synligare pusselbord + bildfix
 
-## 1. Ravensburger-stil pusselbitar (`src/lib/puzzle.ts`)
+## Problem
+1. **Bakgrunden och guide-rektangeln har nastan samma farg** -- board ar `hsl(220, 15%, 93%)` (ljusgra) och guiden ar vit med lag opacitet. Nastan ingen kontrast.
+2. **Bilden kan fortfarande vara for liten** -- skarmklippet visar en pytteliten bild fran iPad-fotobiblioteket som valjs. Normaliseringen finns pa plats men guiden/bitarna kanske inte syns pa grund av fargproblemet.
 
-Helt omskriven `drawJigsawSide` med ny kurvprofil:
-- Smal nacke med inåtgående "klämma" (neckInset) som ger svampform
-- Stort runt huvud med breda Bezier-kurvor som skapar nästan cirkulär form
-- Parametrar: `neckWidth = 0.08`, `tabHeight = 0.30`, `headSpread = 0.22`
-- 6 segment: rak -> nacke inåt -> vänster bulge -> höger bulge -> nacke tillbaka -> rak
+## Losning
 
-## 2. Bildnormalisering (`src/lib/puzzle.ts`)
+### 1. Ljust lila bakgrund pa borda (`src/index.css`)
 
-Ny `normalizeImage`-funktion som körs innan bitarna klipps:
-- Konstant `MIN_DIMENSION = 2400`
-- Om bildens största sida understiger 2400px skalas den upp proportionellt
-- Uppskalad bild ritas på en canvas som sedan används som källa
-- Garanterar att pusselbitar alltid får rimlig storlek
+Byt `--board` till en ljust lila farg som ger tydlig kontrast mot den vita guide-rektangeln:
 
-## 3. Synligare guide-rektangel (`src/components/puzzle/PuzzleBoard.tsx`)
+- Light mode: `--board: 262 30% 88%` (ljust lila, tydligt skild fran vit)
+- Dark mode: `--board: 262 20% 15%` (morkt lila for dark mode)
+- Uppdatera board-border for att matcha: light `262 25% 82%`, dark `262 20% 22%`
 
-- Tjockare kant: `3px dashed rgba(255,255,255,0.7)` 
-- Starkare bakgrund: `rgba(255,255,255,0.07)`
-- Kraftigare skugga: `inset 0 0 60px rgba(255,255,255,0.10)`
-- 4 st L-formade hörnmarkeringar (20x20px) i varje hörn med `rgba(255,255,255,0.8)` kanter
+### 2. Starkare guide-rektangel mot ny bakgrund (`src/components/puzzle/PuzzleBoard.tsx`)
 
-## Filer som ändras
+Med lila bakgrund ska guiden vara vit och tydlig:
+- Solid vit kant istallet for streckad: `2px solid rgba(255,255,255,0.85)`
+- Starkare vit bakgrund inuti: `rgba(255,255,255,0.12)`
+- Hornmarkorer med starkare opacitet och storre storlek (30x30px)
 
-1. `src/lib/puzzle.ts` -- ny drawJigsawSide + normalizeImage + använd normaliserad bild i splitImage
-2. `src/components/puzzle/PuzzleBoard.tsx` -- starkare guide-styling + hörnmarkeringar
+### Filer som andras
+
+1. **`src/index.css`** -- Byt `--board` och `--board-border` till ljust lila i bade light och dark mode
+2. **`src/components/puzzle/PuzzleBoard.tsx`** -- Starkare guide-rektangel som kontrasterar mot lila bakgrund
 
