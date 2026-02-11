@@ -59,41 +59,43 @@ function drawJigsawSide(
   const nx = -uy * tabDir;
   const ny = ux * tabDir;
 
-  const neckStart = 0.36;
-  const neckEnd = 0.64;
-  const neckInset = len * 0.05;
-  const neckWidth = len * 0.06;
-  const tabHeight = len * 0.32;
-  const headSpread = len * 0.28;
+  const neckStart = 0.34;
+  const neckEnd = 0.66;
+  const neckInset = len * 0.02;
+  const neckWidth = len * 0.10;
+  const tabHeight = len * 0.30;
+  const headSpread = len * 0.26;
 
-  // 1. Straight to neck start
-  ctx.lineTo(x0 + dx * neckStart, y0 + dy * neckStart);
+  // 1. Smooth curve into neck start (no hard corner)
+  const ns_x = x0 + dx * neckStart;
+  const ns_y = y0 + dy * neckStart;
+  ctx.lineTo(ns_x, ns_y);
 
-  // 2. Neck: pinch inward then narrow opening
+  // 2. Gentle neck opening with soft inward curve
   ctx.bezierCurveTo(
-    x0 + dx * (neckStart + 0.01) - nx * neckInset, y0 + dy * (neckStart + 0.01) - ny * neckInset,
-    x0 + dx * (neckStart + 0.03) + nx * neckWidth * 0.3, y0 + dy * (neckStart + 0.03) + ny * neckWidth * 0.3,
-    x0 + dx * 0.41 + nx * neckWidth, y0 + dy * 0.41 + ny * neckWidth
+    x0 + dx * (neckStart + 0.02) - nx * neckInset, y0 + dy * (neckStart + 0.02) - ny * neckInset,
+    x0 + dx * (neckStart + 0.06) + nx * neckWidth * 0.5, y0 + dy * (neckStart + 0.06) + ny * neckWidth * 0.5,
+    x0 + dx * 0.42 + nx * neckWidth, y0 + dy * 0.42 + ny * neckWidth
   );
 
-  // 3. Left side of head: wide circular bulge
+  // 3. Left side of head: wide smooth circular arc
   ctx.bezierCurveTo(
-    x0 + dx * 0.28 - ux * headSpread * 0.35 + nx * tabHeight * 0.9, y0 + dy * 0.28 - uy * headSpread * 0.35 + ny * tabHeight * 0.9,
-    x0 + dx * 0.35 - ux * headSpread * 0.25 + nx * tabHeight * 1.18, y0 + dy * 0.35 - uy * headSpread * 0.25 + ny * tabHeight * 1.18,
+    x0 + dx * 0.30 - ux * headSpread * 0.3 + nx * tabHeight * 0.85, y0 + dy * 0.30 - uy * headSpread * 0.3 + ny * tabHeight * 0.85,
+    x0 + dx * 0.36 - ux * headSpread * 0.15 + nx * tabHeight * 1.12, y0 + dy * 0.36 - uy * headSpread * 0.15 + ny * tabHeight * 1.12,
     x0 + dx * 0.5 + nx * tabHeight, y0 + dy * 0.5 + ny * tabHeight
   );
 
-  // 4. Right side of head: mirror circular bulge
+  // 4. Right side of head: mirror smooth circular arc
   ctx.bezierCurveTo(
-    x0 + dx * 0.65 + ux * headSpread * 0.25 + nx * tabHeight * 1.18, y0 + dy * 0.65 + uy * headSpread * 0.25 + ny * tabHeight * 1.18,
-    x0 + dx * 0.72 + ux * headSpread * 0.35 + nx * tabHeight * 0.9, y0 + dy * 0.72 + uy * headSpread * 0.35 + ny * tabHeight * 0.9,
-    x0 + dx * 0.59 + nx * neckWidth, y0 + dy * 0.59 + ny * neckWidth
+    x0 + dx * 0.64 + ux * headSpread * 0.15 + nx * tabHeight * 1.12, y0 + dy * 0.64 + uy * headSpread * 0.15 + ny * tabHeight * 1.12,
+    x0 + dx * 0.70 + ux * headSpread * 0.3 + nx * tabHeight * 0.85, y0 + dy * 0.70 + uy * headSpread * 0.3 + ny * tabHeight * 0.85,
+    x0 + dx * 0.58 + nx * neckWidth, y0 + dy * 0.58 + ny * neckWidth
   );
 
-  // 5. Neck back: pinch inward then back to edge
+  // 5. Gentle neck closing with soft inward curve
   ctx.bezierCurveTo(
-    x0 + dx * (neckEnd - 0.03) + nx * neckWidth * 0.3, y0 + dy * (neckEnd - 0.03) + ny * neckWidth * 0.3,
-    x0 + dx * (neckEnd - 0.01) - nx * neckInset, y0 + dy * (neckEnd - 0.01) - ny * neckInset,
+    x0 + dx * (neckEnd - 0.06) + nx * neckWidth * 0.5, y0 + dy * (neckEnd - 0.06) + ny * neckWidth * 0.5,
+    x0 + dx * (neckEnd - 0.02) - nx * neckInset, y0 + dy * (neckEnd - 0.02) - ny * neckInset,
     x0 + dx * neckEnd, y0 + dy * neckEnd
   );
 
