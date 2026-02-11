@@ -34,8 +34,8 @@
 
     --radius: 0.75rem;
 
-    --board: 220 15% 93%;
-    --board-border: 220 13% 85%;
+    --board: 262 30% 88%;
+    --board-border: 262 25% 82%;
     --tray: 0 0% 100%;
     --tray-border: 220 13% 88%;
     --piece-selected: 262 52% 47%;
@@ -80,8 +80,8 @@
     --input: 220 20% 20%;
     --ring: 262 52% 55%;
 
-    --board: 220 20% 12%;
-    --board-border: 220 20% 18%;
+    --board: 262 20% 15%;
+    --board-border: 262 20% 22%;
     --tray: 220 25% 10%;
     --tray-border: 220 20% 18%;
     --piece-selected: 262 52% 55%;
