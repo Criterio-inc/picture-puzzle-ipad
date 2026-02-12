@@ -196,15 +196,25 @@ const PuzzleGame = () => {
     });
   }, []);
 
+  const [snappedGroupId, setSnappedGroupId] = useState<number | null>(null);
+
   const handlePieceDrop = useCallback((_id: number) => {
     setBoardPieces((prev) => {
-      let snapped = trySnap(prev);
-      snapped = trySnapToGuide(snapped, COLS, ROWS);
-      const groups = new Set(snapped.map((p) => p.groupId));
-      if (groups.size === 1 && snapped.length === COLS * ROWS) {
+      const snapResult = trySnap(prev);
+      const guideResult = trySnapToGuide(snapResult.pieces, COLS, ROWS);
+
+      if (snapResult.snapped || guideResult.snapped) {
+        const gid = guideResult.snappedGroupId ?? snapResult.snappedGroupId;
+        setSnappedGroupId(gid);
+        setTimeout(() => setSnappedGroupId(null), 600);
+        toast.success("Klick! ✨", { duration: 1000 });
+      }
+
+      const groups = new Set(guideResult.pieces.map((p) => p.groupId));
+      if (groups.size === 1 && guideResult.pieces.length === COLS * ROWS) {
         setTimeout(() => toast.success("🎉 Pusslet är klart!"), 300);
       }
-      return snapped;
+      return guideResult.pieces;
     });
   }, [COLS, ROWS]);
 
@@ -236,6 +246,7 @@ const PuzzleGame = () => {
         cols={COLS}
         rows={ROWS}
         guideRect={getGuideRect(allPiecesRef.current, COLS, ROWS)}
+        snappedGroupId={snappedGroupId}
       />
       <PieceTray
         pieces={trayPieces}

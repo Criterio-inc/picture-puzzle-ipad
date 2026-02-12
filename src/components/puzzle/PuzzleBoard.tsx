@@ -17,12 +17,13 @@ interface PuzzleBoardProps {
   cols: number;
   rows: number;
   guideRect: GuideRect | null;
+  snappedGroupId?: number | null;
 }
 
 const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 2;
 
-const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect }: PuzzleBoardProps) => {
+const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect, snappedGroupId }: PuzzleBoardProps) => {
   const boardRef = useRef<HTMLDivElement>(null);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [draggingGroupId, setDraggingGroupId] = useState<number | null>(null);
@@ -216,10 +217,11 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect }: 
         )}
         {pieces.map((piece) => {
           const isDraggingGroup = draggingGroupId !== null && piece.groupId === draggingGroupId;
+          const isSnapped = snappedGroupId !== null && piece.groupId === snappedGroupId;
           return (
             <div
               key={piece.id}
-              className="absolute cursor-grab active:cursor-grabbing"
+              className={`absolute cursor-grab active:cursor-grabbing ${isSnapped ? "snap-glow" : ""}`}
               style={{
                 left: piece.x ?? 0,
                 top: piece.y ?? 0,
@@ -227,7 +229,9 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect }: 
                 transition: isDraggingGroup ? "none" : "filter 0.15s",
                 filter: isDraggingGroup
                   ? "drop-shadow(0 4px 8px rgba(0,0,0,0.3))"
-                  : "drop-shadow(0 1px 2px rgba(0,0,0,0.15))",
+                  : isSnapped
+                    ? "drop-shadow(0 0 12px rgba(74,222,128,0.8))"
+                    : "drop-shadow(0 1px 2px rgba(0,0,0,0.15))",
               }}
               onPointerDown={(e) => handlePointerDown(e, piece)}
             >
