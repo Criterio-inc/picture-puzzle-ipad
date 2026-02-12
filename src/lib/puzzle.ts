@@ -251,17 +251,24 @@ export function splitImage(
   });
 }
 
-const SNAP_THRESHOLD = 18;
+export interface SnapResult {
+  pieces: PuzzlePiece[];
+  snapped: boolean;
+  snappedGroupId: number | null;
+}
 
-export function trySnap(pieces: PuzzlePiece[]): PuzzlePiece[] {
-  if (pieces.length < 2) return pieces;
+export function trySnap(pieces: PuzzlePiece[]): SnapResult {
+  if (pieces.length < 2) return { pieces, snapped: false, snappedGroupId: null };
 
   const sample = pieces[0];
   const cellW = sample.displayWidth - 2 * sample.offsetX;
   const cellH = sample.displayHeight - 2 * sample.offsetY;
+  const threshold = Math.max(8, Math.min(cellW, cellH) * 0.10);
 
   let updated = pieces.map((p) => ({ ...p }));
   let changed = true;
+  let snapped = false;
+  let snappedGroupId: number | null = null;
 
   while (changed) {
     changed = false;
@@ -284,7 +291,7 @@ export function trySnap(pieces: PuzzlePiece[]): PuzzlePiece[] {
         const dy = b.y - expectedBy;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist < SNAP_THRESHOLD) {
+        if (dist < threshold) {
           const oldGroupId = b.groupId;
           const newGroupId = a.groupId;
           const shiftX = expectedBx - b.x;
@@ -297,27 +304,32 @@ export function trySnap(pieces: PuzzlePiece[]): PuzzlePiece[] {
               if (p.y !== null) p.y += shiftY;
             }
           }
+          snapped = true;
+          snappedGroupId = newGroupId;
           changed = true;
         }
       }
     }
   }
 
-  return updated;
+  return { pieces: updated, snapped, snappedGroupId };
 }
 
 /** Snap pieces to the guide border if close to their correct absolute position.
  *  Lock groups containing edge pieces when snapped correctly. */
-export function trySnapToGuide(pieces: PuzzlePiece[], cols: number, rows: number): PuzzlePiece[] {
-  if (pieces.length === 0) return pieces;
+export function trySnapToGuide(pieces: PuzzlePiece[], cols: number, rows: number): SnapResult {
+  if (pieces.length === 0) return { pieces, snapped: false, snappedGroupId: null };
 
   const sample = pieces[0];
   const cellW = sample.displayWidth - 2 * sample.offsetX;
   const cellH = sample.displayHeight - 2 * sample.offsetY;
   const offsetX = sample.offsetX;
   const offsetY = sample.offsetY;
+  const threshold = Math.max(8, Math.min(cellW, cellH) * 0.10);
 
   let updated = pieces.map((p) => ({ ...p }));
+  let snapped = false;
+  let snappedGroupId: number | null = null;
 
   // Group pieces by groupId
   const groups = new Map<number, typeof updated>();
@@ -329,7 +341,6 @@ export function trySnapToGuide(pieces: PuzzlePiece[], cols: number, rows: number
   for (const [groupId, groupPieces] of groups) {
     if (groupPieces[0].locked) continue;
 
-    // Check if group has at least one edge piece
     const hasEdgePiece = groupPieces.some(
       (gp) => gp.row === 0 || gp.row === rows - 1 || gp.col === 0 || gp.col === cols - 1
     );
@@ -344,7 +355,7 @@ export function trySnapToGuide(pieces: PuzzlePiece[], cols: number, rows: number
       const dy = p.y - correctY;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist < SNAP_THRESHOLD) {
+      if (dist < threshold) {
         const shiftX = correctX - p.x;
         const shiftY = correctY - p.y;
 
@@ -355,12 +366,14 @@ export function trySnapToGuide(pieces: PuzzlePiece[], cols: number, rows: number
             gp.locked = true;
           }
         }
+        snapped = true;
+        snappedGroupId = groupId;
         break;
       }
     }
   }
 
-  return updated;
+  return { pieces: updated, snapped, snappedGroupId };
 }
 
 /** Compute guide rectangle dimensions */
