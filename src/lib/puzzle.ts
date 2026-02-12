@@ -292,21 +292,56 @@ export function trySnap(pieces: PuzzlePiece[]): SnapResult {
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist < threshold) {
-          const oldGroupId = b.groupId;
-          const newGroupId = a.groupId;
-          const shiftX = expectedBx - b.x;
-          const shiftY = expectedBy - b.y;
+          const aLocked = updated.some(p => p.groupId === a.groupId && p.locked);
+          const bLocked = updated.some(p => p.groupId === b.groupId && p.locked);
 
-          for (const p of updated) {
-            if (p.groupId === oldGroupId) {
-              p.groupId = newGroupId;
-              if (p.x !== null) p.x += shiftX;
-              if (p.y !== null) p.y += shiftY;
+          if (aLocked && bLocked) {
+            // Both locked – merge without shifting (already aligned by guide)
+            const oldGroupId = b.groupId;
+            for (const p of updated) {
+              if (p.groupId === oldGroupId) {
+                p.groupId = a.groupId;
+              }
             }
+            snapped = true;
+            snappedGroupId = a.groupId;
+            changed = true;
+          } else if (bLocked && !aLocked) {
+            // B is locked – move A's group to align with B
+            const expectedAx = b.x! - dc * cellW;
+            const expectedAy = b.y! - dr * cellH;
+            const shiftX = expectedAx - a.x!;
+            const shiftY = expectedAy - a.y!;
+            const oldGroupId = a.groupId;
+            for (const p of updated) {
+              if (p.groupId === oldGroupId) {
+                p.groupId = b.groupId;
+                if (p.x !== null) p.x += shiftX;
+                if (p.y !== null) p.y += shiftY;
+                p.locked = true;
+              }
+            }
+            snapped = true;
+            snappedGroupId = b.groupId;
+            changed = true;
+          } else {
+            // Default: move B's group to align with A
+            const oldGroupId = b.groupId;
+            const newGroupId = a.groupId;
+            const shiftX = expectedBx - b.x!;
+            const shiftY = expectedBy - b.y!;
+            for (const p of updated) {
+              if (p.groupId === oldGroupId) {
+                p.groupId = newGroupId;
+                if (p.x !== null) p.x += shiftX;
+                if (p.y !== null) p.y += shiftY;
+                if (aLocked) p.locked = true;
+              }
+            }
+            snapped = true;
+            snappedGroupId = newGroupId;
+            changed = true;
           }
-          snapped = true;
-          snappedGroupId = newGroupId;
-          changed = true;
         }
       }
     }
