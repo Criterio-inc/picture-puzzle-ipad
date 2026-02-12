@@ -1,44 +1,56 @@
 
-# Fix: Pusselbitar som inte passar ihop visuellt
+# Fix: Låsta grupper hoppar vid sammankoppling
 
 ## Grundorsak
 
-Det finns en matematisk bugg i hur flikarna (tabs) beraknas. Tva separata negationer tar ut varandra:
+`trySnap` ignorerar `locked`-flaggan helt. Nar tva grupper kopplas ihop valjer den alltid att flytta grupp B till grupp A -- oavsett om grupp B ar last (korrekt placerad pa guiden). Det ar darfor den nedre delen "hoppade at hoger" nar den kopplades samman med den ovre.
 
-1. `getTabDirs` negerar `top` och `left` (rad 120, 122): `-tabs.horizontal[...]`, `-tabs.vertical[...]`
-2. `drawPiecePath` negerar ocksa `bottom` och `left` (rad 114-115): `-bottom`, `-left`
-
-Resultatet: angransande bitar far **identiska** flikformer istallet for komplementara. Bade ovansidan pa en bit och undersidan pa biten ovanfor pekar at samma hall -- sa tva utskjutande flikar moter varandra, eller tva haligheter moter varandra. Bitarna kan aldrig passa ihop visuellt.
+Scenario som orsakar buggen:
+1. Anvandaren bygger ovre vanstra kolumnen (grupp A, lastad till guiden)
+2. Anvandaren bygger nedre vanstra kolumnen (grupp B, ocksa lastad till guiden)
+3. Anvandaren placerar en sammanbindande bit -- den snappas forst till grupp A
+4. Nu forsaker `trySnap` koppla ihop den utokade grupp A med grupp B
+5. Grupp B (lastad, korrekt position) shiftas for att matcha grupp A -- fel!
 
 ## Losning
 
-**En enda andring i `getTabDirs` (rad 120 och 122 i `src/lib/puzzle.ts`)**:
+Andra `trySnap` i `src/lib/puzzle.ts` sa att:
 
-Ta bort negationen for `top` och `left`:
+1. **Om grupp B ar lastad och grupp A inte ar det**: valja att flytta grupp A till grupp B istallet (omvand riktning)
+2. **Om bada grupper ar lasta**: de bor redan vara korrekt positionerade relativt varandra -- gora merge utan shift (bara byt groupId)
+3. **Om ingen grupp ar lastad**: bete sig som idag (flytta B till A)
 
-Fran:
+### Teknisk andring i `trySnap` (rad 294-309)
+
+Nar en snap hittas, kontrollera `locked`-status for bada grupper:
+
 ```text
-const top = row === 0 ? 0 : -tabs.horizontal[row - 1][col];
-const left = col === 0 ? 0 : -tabs.vertical[row][col - 1];
-```
+const aLocked = updated.some(p => p.groupId === a.groupId && p.locked);
+const bLocked = updated.some(p => p.groupId === b.groupId && p.locked);
 
-Till:
-```text
-const top = row === 0 ? 0 : tabs.horizontal[row - 1][col];
-const left = col === 0 ? 0 : tabs.vertical[row][col - 1];
+if (bLocked && !aLocked) {
+  // Flytta A:s grupp till B istallet
+  const expectedAx = b.x - dc * cellW;
+  const expectedAy = b.y - dr * cellH;
+  const shiftX = expectedAx - a.x;
+  const shiftY = expectedAy - a.y;
+  const oldGroupId = a.groupId;
+  for (const p of updated) {
+    if (p.groupId === oldGroupId) {
+      p.groupId = b.groupId;
+      if (p.x !== null) p.x += shiftX;
+      if (p.y !== null) p.y += shiftY;
+      p.locked = true;
+    }
+  }
+} else {
+  // Befintlig logik: flytta B:s grupp till A
+  // + om A ar lastad, markera aven B-bitarna som locked
+}
 ```
-
-`drawPiecePath` hanterar redan riktningsomkastningen genom att negera bottom och left nar kanterna ritas i omvand ordning (medurs). Den extra negationen i `getTabDirs` gor att de tar ut varandra -- efter fixen far angransande kanter **motsatta** flikriktningar, precis som i ett riktigt pussel.
 
 ## Fil som andras
 
 | Fil | Andring |
 |---|---|
-| `src/lib/puzzle.ts` | Ta bort `-` fran `top` och `left` i `getTabDirs` (2 tecken) |
-
-## Verifiering
-
-Efter andringen:
-- Om bit (r,c) har en utskjutande flik pa hogersidan, har bit (r,c+1) en halighet pa vanstersidan
-- Om bit (r,c) har en halighet pa undersidan, har bit (r+1,c) en utskjutande flik pa oversidan
-- Bitarna passar visuellt ihop som ett riktigt pussel
+| `src/lib/puzzle.ts` | Hantera `locked`-status i `trySnap` vid merge av grupper |
