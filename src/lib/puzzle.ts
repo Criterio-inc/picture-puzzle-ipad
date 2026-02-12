@@ -117,9 +117,9 @@ function drawPiecePath(
 }
 
 function getTabDirs(row: number, col: number, rows: number, cols: number, tabs: TabsConfig) {
-  const top = row === 0 ? 0 : -tabs.horizontal[row - 1][col];
+  const top = row === 0 ? 0 : tabs.horizontal[row - 1][col];
   const bottom = row === rows - 1 ? 0 : tabs.horizontal[row][col];
-  const left = col === 0 ? 0 : -tabs.vertical[row][col - 1];
+  const left = col === 0 ? 0 : tabs.vertical[row][col - 1];
   const right = col === cols - 1 ? 0 : tabs.vertical[row][col];
   return { top, right, bottom, left };
 }
