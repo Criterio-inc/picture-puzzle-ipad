@@ -26,14 +26,9 @@ export interface SplitImageResult {
   tabs: TabsConfig;
 }
 
-// Enhanced tab configuration with variation parameters for unique piece shapes
+// Tab configuration - only direction varies for perfect complementary fit
 export interface TabParams {
   dir: number;           // 1 = outward, -1 = inward, 0 = flat
-  posStart: number;      // Where tab starts (0.30-0.40)
-  posEnd: number;        // Where tab ends (0.60-0.70)
-  neckWidth: number;     // Neck width ratio (0.08-0.12)
-  tabHeight: number;     // Tab height ratio (0.22-0.34)
-  headRadius: number;    // Head radius ratio (0.13-0.18)
 }
 
 export interface EnhancedTabsConfig {
@@ -41,15 +36,18 @@ export interface EnhancedTabsConfig {
   vertical: TabParams[][];
 }
 
+// Fixed tab parameters for consistent, professional fit
+const FIXED_TAB_PARAMS = {
+  posStart: 0.35,      // Where tab starts (fixed for perfect fit)
+  posEnd: 0.65,        // Where tab ends (fixed for perfect fit)
+  neckWidth: 0.10,     // Neck width ratio (fixed)
+  tabHeight: 0.28,     // Tab height ratio (fixed)
+  headRadius: 0.15,    // Head radius ratio (fixed)
+};
+
 function generateRandomTabParams(): TabParams {
   const dir = Math.random() > 0.5 ? 1 : -1;
-  const posStart = 0.30 + Math.random() * 0.10;  // 0.30-0.40
-  const posEnd = 0.60 + Math.random() * 0.10;    // 0.60-0.70
-  const neckWidth = 0.08 + Math.random() * 0.04;  // 0.08-0.12
-  const tabHeight = 0.22 + Math.random() * 0.12;  // 0.22-0.34
-  const headRadius = 0.13 + Math.random() * 0.05; // 0.13-0.18
-
-  return { dir, posStart, posEnd, neckWidth, tabHeight, headRadius };
+  return { dir };
 }
 
 function generateTabsConfig(rows: number, cols: number): EnhancedTabsConfig {
@@ -70,7 +68,7 @@ function generateTabsConfig(rows: number, cols: number): EnhancedTabsConfig {
   return { horizontal, vertical };
 }
 
-// Enhanced Ravensburger-style jigsaw tab with unique variations
+// Professional Ravensburger-style jigsaw tab with consistent shape
 function drawJigsawSide(
   ctx: CanvasRenderingContext2D,
   x0: number, y0: number,
@@ -90,12 +88,12 @@ function drawJigsawSide(
   const nx = -uy * tabParams.dir;
   const ny = ux * tabParams.dir;
 
-  // Use varied parameters for unique shapes
-  const neckStart = tabParams.posStart;
-  const neckEnd = tabParams.posEnd;
-  const neckWidth = len * tabParams.neckWidth;
-  const tabHeight = len * tabParams.tabHeight;
-  const headRadius = len * tabParams.headRadius;
+  // Use fixed parameters for perfect complementary fit
+  const neckStart = FIXED_TAB_PARAMS.posStart;
+  const neckEnd = FIXED_TAB_PARAMS.posEnd;
+  const neckWidth = len * FIXED_TAB_PARAMS.neckWidth;
+  const tabHeight = len * FIXED_TAB_PARAMS.tabHeight;
+  const headRadius = len * FIXED_TAB_PARAMS.headRadius;
 
   const midPoint = (neckStart + neckEnd) / 2;
 
@@ -301,8 +299,9 @@ export interface SnapResult {
 }
 
 /**
- * Smart piece placement algorithm that positions pieces in a ring around the puzzle
- * without overlaps. Pieces are arranged in a grid pattern in the work area.
+ * Smart piece placement algorithm that positions pieces ON the puzzle board
+ * in a visible area to the left of the puzzle. Pieces are arranged in a
+ * compact grid pattern for easy access.
  */
 export function placeAroundPuzzle(
   piecesToPlace: PuzzlePiece[],
@@ -323,23 +322,22 @@ export function placeAroundPuzzle(
   const puzzleHeight = rows * cellH;
   const puzzleLeft = PUZZLE_ORIGIN.x;
   const puzzleTop = PUZZLE_ORIGIN.y;
-  const puzzleRight = puzzleLeft + puzzleWidth;
-  const puzzleBottom = puzzleTop + puzzleHeight;
 
-  // Define work area to the left and below the puzzle (avoiding top-right where zoom controls are)
-  const workAreaLeft = puzzleLeft - 100;  // Small margin from puzzle
-  const workAreaTop = puzzleBottom + 100;  // Below the puzzle
-  const workAreaWidth = puzzleWidth + 200;  // Slightly wider than puzzle
+  // Place pieces to the LEFT of the puzzle in a compact grid
+  // This keeps them visible when using "Fit to puzzle" view
+  const pieceSpacing = Math.max(sample.displayWidth, sample.displayHeight) + 15; // Compact 15px gap
+  const maxColumns = 4; // Max 4 pieces per row for compact layout
 
-  // Calculate grid layout for pieces
-  const pieceSpacing = Math.max(sample.displayWidth, sample.displayHeight) + 20; // 20px gap
-  const piecesPerRow = Math.floor(workAreaWidth / pieceSpacing);
+  // Work area starts left of puzzle with margin
+  const workAreaRight = puzzleLeft - 80;  // 80px margin from puzzle
+  const workAreaTop = puzzleTop;  // Align with puzzle top
 
   const positioned = piecesToPlace.map((piece, index) => {
-    const row = Math.floor(index / piecesPerRow);
-    const col = index % piecesPerRow;
+    const row = Math.floor(index / maxColumns);
+    const col = index % maxColumns;
 
-    const x = workAreaLeft + col * pieceSpacing;
+    // Place from right to left, top to bottom
+    const x = workAreaRight - (col + 1) * pieceSpacing;
     const y = workAreaTop + row * pieceSpacing;
 
     return {
