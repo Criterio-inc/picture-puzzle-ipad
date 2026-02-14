@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { PuzzlePiece, splitImage, trySnap, trySnapToGuide, getGuideRect, serializePieces, deserializePieces } from "@/lib/puzzle";
+import { PuzzlePiece, splitImage, trySnap, trySnapToGuide, getGuideRect, serializePieces, deserializePieces, placeAroundPuzzle, EnhancedTabsConfig } from "@/lib/puzzle";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import PuzzleHeader from "@/components/puzzle/PuzzleHeader";
@@ -20,9 +20,12 @@ const PuzzleGame = () => {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [trayExpanded, setTrayExpanded] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [showGuide, setShowGuide] = useState(true);
   const [gameId, setGameId] = useState<string | null>(searchParams.get("id"));
   const allPiecesRef = useRef<PuzzlePiece[]>([]);
   const imageDataRef = useRef<string>("");
+  const tabsConfigRef = useRef<EnhancedTabsConfig | null>(null);
   const savingRef = useRef(false);
   const boardPiecesRef = useRef<PuzzlePiece[]>([]);
   const trayPiecesRef = useRef<PuzzlePiece[]>([]);
@@ -39,12 +42,17 @@ const PuzzleGame = () => {
 
     const boardData = serializePieces(boardPiecesRef.current) as unknown as Json;
     const trayData = serializePieces(trayPiecesRef.current) as unknown as Json;
+    const tabsData = tabsConfigRef.current as unknown as Json;
 
     try {
       if (gameIdRef.current) {
         await supabase
           .from("puzzle_games")
-          .update({ board_pieces: boardData, tray_pieces: trayData })
+          .update({
+            board_pieces: boardData,
+            tray_pieces: trayData,
+            tabs_config: tabsData
+          })
           .eq("id", gameIdRef.current);
       } else {
         const { data } = await supabase
@@ -54,6 +62,7 @@ const PuzzleGame = () => {
             image_url: imageDataRef.current,
             board_pieces: boardData,
             tray_pieces: trayData,
+            tabs_config: tabsData,
             cols: COLS,
             rows: ROWS,
           })
@@ -104,14 +113,17 @@ const PuzzleGame = () => {
 
         if (data) {
           imageDataRef.current = data.image_url;
-          const allPieces = await splitImage(data.image_url, COLS, ROWS);
-          allPiecesRef.current = allPieces;
+          const savedTabsConfig = data.tabs_config as EnhancedTabsConfig | null;
+
+          const result = await splitImage(data.image_url, COLS, ROWS, savedTabsConfig || undefined);
+          allPiecesRef.current = result.pieces;
+          tabsConfigRef.current = result.tabs;
 
           const savedBoard = data.board_pieces as any[];
           const savedTray = data.tray_pieces as any[];
 
-          setBoardPieces(deserializePieces(savedBoard, allPieces));
-          setTrayPieces(deserializePieces(savedTray, allPieces));
+          setBoardPieces(deserializePieces(savedBoard, result.pieces));
+          setTrayPieces(deserializePieces(savedTray, result.pieces));
           setLoading(false);
           return;
         }
@@ -124,9 +136,10 @@ const PuzzleGame = () => {
       }
       imageDataRef.current = imageData;
 
-      splitImage(imageData, COLS, ROWS).then((pieces) => {
-        allPiecesRef.current = pieces;
-        setTrayPieces(pieces);
+      splitImage(imageData, COLS, ROWS).then((result) => {
+        allPiecesRef.current = result.pieces;
+        tabsConfigRef.current = result.tabs;
+        setTrayPieces(result.pieces);
         setLoading(false);
       }).catch(() => {
         toast.error("Kunde inte skapa pussel");
@@ -150,17 +163,17 @@ const PuzzleGame = () => {
     if (selectedIds.size === 0) return;
     const toMove = trayPieces.filter((p) => selectedIds.has(p.id));
     const remaining = trayPieces.filter((p) => !selectedIds.has(p.id));
-    const placed = toMove.map((p) => ({
-      ...p,
-      selected: false,
-      x: 50 + Math.random() * 300,
-      y: 50 + Math.random() * 300,
-    }));
+
+    // Use smart placement instead of random
+    setBoardPieces((prev) => {
+      const placed = placeAroundPuzzle(toMove, prev, COLS, ROWS);
+      return [...prev, ...placed];
+    });
+
     setTrayPieces(remaining);
-    setBoardPieces((prev) => [...prev, ...placed]);
     setSelectedIds(new Set());
     toast.success(`${toMove.length} bitar skickade till bordet`);
-  }, [selectedIds, trayPieces]);
+  }, [selectedIds, trayPieces, COLS, ROWS]);
 
   const clearStrayPieces = useCallback(() => {
     const groupCounts = new Map<number, number>();
@@ -238,6 +251,10 @@ const PuzzleGame = () => {
         onClearStray={clearStrayPieces}
         onGiveUp={giveUp}
         onBack={handleBack}
+        showPreview={showPreview}
+        onTogglePreview={() => setShowPreview(!showPreview)}
+        showGuide={showGuide}
+        onToggleGuide={() => setShowGuide(!showGuide)}
       />
       <PuzzleBoard
         pieces={boardPieces}
@@ -247,6 +264,9 @@ const PuzzleGame = () => {
         rows={ROWS}
         guideRect={getGuideRect(allPiecesRef.current, COLS, ROWS)}
         snappedGroupId={snappedGroupId}
+        showPreview={showPreview}
+        showGuide={showGuide}
+        imageUrl={imageDataRef.current}
       />
       <PieceTray
         pieces={trayPieces}

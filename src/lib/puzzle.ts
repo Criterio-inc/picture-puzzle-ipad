@@ -16,37 +16,68 @@ export interface PuzzlePiece {
 
 export const PUZZLE_ORIGIN = { x: 800, y: 800 };
 
-interface TabsConfig {
+export interface TabsConfig {
   horizontal: number[][];
   vertical: number[][];
 }
 
-function generateTabsConfig(rows: number, cols: number): TabsConfig {
-  const horizontal: number[][] = [];
+export interface SplitImageResult {
+  pieces: PuzzlePiece[];
+  tabs: TabsConfig;
+}
+
+// Enhanced tab configuration with variation parameters for unique piece shapes
+export interface TabParams {
+  dir: number;           // 1 = outward, -1 = inward, 0 = flat
+  posStart: number;      // Where tab starts (0.30-0.40)
+  posEnd: number;        // Where tab ends (0.60-0.70)
+  neckWidth: number;     // Neck width ratio (0.08-0.12)
+  tabHeight: number;     // Tab height ratio (0.22-0.34)
+  headRadius: number;    // Head radius ratio (0.13-0.18)
+}
+
+export interface EnhancedTabsConfig {
+  horizontal: TabParams[][];
+  vertical: TabParams[][];
+}
+
+function generateRandomTabParams(): TabParams {
+  const dir = Math.random() > 0.5 ? 1 : -1;
+  const posStart = 0.30 + Math.random() * 0.10;  // 0.30-0.40
+  const posEnd = 0.60 + Math.random() * 0.10;    // 0.60-0.70
+  const neckWidth = 0.08 + Math.random() * 0.04;  // 0.08-0.12
+  const tabHeight = 0.22 + Math.random() * 0.12;  // 0.22-0.34
+  const headRadius = 0.13 + Math.random() * 0.05; // 0.13-0.18
+
+  return { dir, posStart, posEnd, neckWidth, tabHeight, headRadius };
+}
+
+function generateTabsConfig(rows: number, cols: number): EnhancedTabsConfig {
+  const horizontal: TabParams[][] = [];
   for (let r = 0; r < rows - 1; r++) {
     horizontal.push([]);
     for (let c = 0; c < cols; c++) {
-      horizontal[r].push(Math.random() > 0.5 ? 1 : -1);
+      horizontal[r].push(generateRandomTabParams());
     }
   }
-  const vertical: number[][] = [];
+  const vertical: TabParams[][] = [];
   for (let r = 0; r < rows; r++) {
     vertical.push([]);
     for (let c = 0; c < cols - 1; c++) {
-      vertical[r].push(Math.random() > 0.5 ? 1 : -1);
+      vertical[r].push(generateRandomTabParams());
     }
   }
   return { horizontal, vertical };
 }
 
-// Ravensburger-style jigsaw tab: narrow neck, large round mushroom head
+// Enhanced Ravensburger-style jigsaw tab with unique variations
 function drawJigsawSide(
   ctx: CanvasRenderingContext2D,
   x0: number, y0: number,
   x1: number, y1: number,
-  tabDir: number
+  tabParams: TabParams | null
 ) {
-  if (tabDir === 0) {
+  if (!tabParams || tabParams.dir === 0) {
     ctx.lineTo(x1, y1);
     return;
   }
@@ -56,38 +87,43 @@ function drawJigsawSide(
   const len = Math.sqrt(dx * dx + dy * dy);
   const ux = dx / len;
   const uy = dy / len;
-  const nx = -uy * tabDir;
-  const ny = ux * tabDir;
+  const nx = -uy * tabParams.dir;
+  const ny = ux * tabParams.dir;
 
-  // Classic jigsaw: square body, round knobs
-  const neckStart = 0.35;
-  const neckEnd = 0.65;
-  const neckWidth = len * 0.10;
-  const tabHeight = len * 0.28;
-  const headRadius = len * 0.15;
+  // Use varied parameters for unique shapes
+  const neckStart = tabParams.posStart;
+  const neckEnd = tabParams.posEnd;
+  const neckWidth = len * tabParams.neckWidth;
+  const tabHeight = len * tabParams.tabHeight;
+  const headRadius = len * tabParams.headRadius;
+
+  const midPoint = (neckStart + neckEnd) / 2;
 
   // 1. Straight to neck start
   ctx.lineTo(x0 + dx * neckStart, y0 + dy * neckStart);
 
   // 2. Slight inward curve at neck entrance
+  const entryCurvePoint = neckStart + (midPoint - neckStart) * 0.25;
   ctx.bezierCurveTo(
     x0 + dx * (neckStart + 0.01), y0 + dy * (neckStart + 0.01),
     x0 + dx * (neckStart + 0.03) + nx * neckWidth * 0.3, y0 + dy * (neckStart + 0.03) + ny * neckWidth * 0.3,
-    x0 + dx * 0.40 + nx * neckWidth, y0 + dy * 0.40 + ny * neckWidth
+    x0 + dx * entryCurvePoint + nx * neckWidth, y0 + dy * entryCurvePoint + ny * neckWidth
   );
 
   // 3. Left side of round knob head
+  const leftHeadPoint = midPoint - 0.05;
   ctx.bezierCurveTo(
-    x0 + dx * 0.35 + nx * (tabHeight * 0.7), y0 + dy * 0.35 + ny * (tabHeight * 0.7),
-    x0 + dx * 0.38 + nx * tabHeight, y0 + dy * 0.38 + ny * tabHeight,
-    x0 + dx * 0.5 + nx * tabHeight, y0 + dy * 0.5 + ny * tabHeight
+    x0 + dx * (midPoint - 0.15) + nx * (tabHeight * 0.7), y0 + dy * (midPoint - 0.15) + ny * (tabHeight * 0.7),
+    x0 + dx * (midPoint - 0.12) + nx * tabHeight, y0 + dy * (midPoint - 0.12) + ny * tabHeight,
+    x0 + dx * midPoint + nx * tabHeight, y0 + dy * midPoint + ny * tabHeight
   );
 
   // 4. Right side of round knob head (mirror)
+  const exitCurvePoint = midPoint + (neckEnd - midPoint) * 0.75;
   ctx.bezierCurveTo(
-    x0 + dx * 0.62 + nx * tabHeight, y0 + dy * 0.62 + ny * tabHeight,
-    x0 + dx * 0.65 + nx * (tabHeight * 0.7), y0 + dy * 0.65 + ny * (tabHeight * 0.7),
-    x0 + dx * 0.60 + nx * neckWidth, y0 + dy * 0.60 + ny * neckWidth
+    x0 + dx * (midPoint + 0.12) + nx * tabHeight, y0 + dy * (midPoint + 0.12) + ny * tabHeight,
+    x0 + dx * (midPoint + 0.15) + nx * (tabHeight * 0.7), y0 + dy * (midPoint + 0.15) + ny * (tabHeight * 0.7),
+    x0 + dx * exitCurvePoint + nx * neckWidth, y0 + dy * exitCurvePoint + ny * neckWidth
   );
 
   // 5. Neck closing
@@ -105,22 +141,28 @@ function drawPiecePath(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
   w: number, h: number,
-  top: number, right: number, bottom: number, left: number
+  top: TabParams | null,
+  right: TabParams | null,
+  bottom: TabParams | null,
+  left: TabParams | null
 ) {
   ctx.beginPath();
   ctx.moveTo(x, y);
   drawJigsawSide(ctx, x, y, x + w, y, top);
   drawJigsawSide(ctx, x + w, y, x + w, y + h, right);
-  drawJigsawSide(ctx, x + w, y + h, x, y + h, -bottom);
-  drawJigsawSide(ctx, x, y + h, x, y, -left);
+  // Bottom and left need inverted direction
+  const bottomInverted = bottom ? { ...bottom, dir: -bottom.dir } : null;
+  const leftInverted = left ? { ...left, dir: -left.dir } : null;
+  drawJigsawSide(ctx, x + w, y + h, x, y + h, bottomInverted);
+  drawJigsawSide(ctx, x, y + h, x, y, leftInverted);
   ctx.closePath();
 }
 
-function getTabDirs(row: number, col: number, rows: number, cols: number, tabs: TabsConfig) {
-  const top = row === 0 ? 0 : tabs.horizontal[row - 1][col];
-  const bottom = row === rows - 1 ? 0 : tabs.horizontal[row][col];
-  const left = col === 0 ? 0 : tabs.vertical[row][col - 1];
-  const right = col === cols - 1 ? 0 : tabs.vertical[row][col];
+function getTabParams(row: number, col: number, rows: number, cols: number, tabs: EnhancedTabsConfig) {
+  const top = row === 0 ? null : tabs.horizontal[row - 1][col];
+  const bottom = row === rows - 1 ? null : tabs.horizontal[row][col];
+  const left = col === 0 ? null : tabs.vertical[row][col - 1];
+  const right = col === cols - 1 ? null : tabs.vertical[row][col];
   return { top, right, bottom, left };
 }
 
@@ -143,8 +185,9 @@ function normalizeImage(img: HTMLImageElement): HTMLCanvasElement | HTMLImageEle
 export function splitImage(
   imageDataUrl: string,
   cols: number,
-  rows: number
-): Promise<PuzzlePiece[]> {
+  rows: number,
+  savedTabs?: EnhancedTabsConfig
+): Promise<SplitImageResult> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -156,7 +199,7 @@ export function splitImage(
       const tabW = Math.ceil(pieceW * 0.35);
       const tabH = Math.ceil(pieceH * 0.35);
       const pieces: PuzzlePiece[] = [];
-      const tabs = generateTabsConfig(rows, cols);
+      const tabs = savedTabs || generateTabsConfig(rows, cols);
 
       const canvasW = pieceW + tabW * 2;
       const canvasH = pieceH + tabH * 2;
@@ -168,7 +211,7 @@ export function splitImage(
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           ctx.clearRect(0, 0, canvasW, canvasH);
-          const { top, right, bottom, left } = getTabDirs(r, c, rows, cols, tabs);
+          const { top, right, bottom, left } = getTabParams(r, c, rows, cols, tabs);
 
           // Clipping
           ctx.save();
@@ -244,7 +287,7 @@ export function splitImage(
         [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
       }
 
-      resolve(pieces);
+      resolve({ pieces, tabs });
     };
     img.onerror = reject;
     img.src = imageDataUrl;
@@ -257,6 +300,62 @@ export interface SnapResult {
   snappedGroupId: number | null;
 }
 
+/**
+ * Smart piece placement algorithm that positions pieces in a ring around the puzzle
+ * without overlaps. Pieces are arranged in a grid pattern in the work area.
+ */
+export function placeAroundPuzzle(
+  piecesToPlace: PuzzlePiece[],
+  existingPieces: PuzzlePiece[],
+  cols: number,
+  rows: number
+): PuzzlePiece[] {
+  if (piecesToPlace.length === 0) return piecesToPlace;
+
+  const sample = piecesToPlace[0] || existingPieces[0];
+  if (!sample) return piecesToPlace;
+
+  const cellW = sample.displayWidth - 2 * sample.offsetX;
+  const cellH = sample.displayHeight - 2 * sample.offsetY;
+
+  // Calculate puzzle guide dimensions
+  const puzzleWidth = cols * cellW;
+  const puzzleHeight = rows * cellH;
+  const puzzleLeft = PUZZLE_ORIGIN.x;
+  const puzzleTop = PUZZLE_ORIGIN.y;
+  const puzzleRight = puzzleLeft + puzzleWidth;
+  const puzzleBottom = puzzleTop + puzzleHeight;
+
+  // Define work area to the left and below the puzzle (avoiding top-right where zoom controls are)
+  const workAreaLeft = puzzleLeft - 100;  // Small margin from puzzle
+  const workAreaTop = puzzleBottom + 100;  // Below the puzzle
+  const workAreaWidth = puzzleWidth + 200;  // Slightly wider than puzzle
+
+  // Calculate grid layout for pieces
+  const pieceSpacing = Math.max(sample.displayWidth, sample.displayHeight) + 20; // 20px gap
+  const piecesPerRow = Math.floor(workAreaWidth / pieceSpacing);
+
+  const positioned = piecesToPlace.map((piece, index) => {
+    const row = Math.floor(index / piecesPerRow);
+    const col = index % piecesPerRow;
+
+    const x = workAreaLeft + col * pieceSpacing;
+    const y = workAreaTop + row * pieceSpacing;
+
+    return {
+      ...piece,
+      x,
+      y,
+      selected: false,
+    };
+  });
+
+  return positioned;
+}
+
+/**
+ * Optimized snap detection using spatial grid for O(n) complexity instead of O(n²)
+ */
 export function trySnap(pieces: PuzzlePiece[]): SnapResult {
   if (pieces.length < 2) return { pieces, snapped: false, snappedGroupId: null };
 
@@ -270,25 +369,43 @@ export function trySnap(pieces: PuzzlePiece[]): SnapResult {
   let snapped = false;
   let snappedGroupId: number | null = null;
 
+  // Build spatial index: map from "row,col" to piece for O(1) neighbor lookup
+  const buildSpatialIndex = (pieces: typeof updated) => {
+    const index = new Map<string, typeof updated[0]>();
+    for (const piece of pieces) {
+      if (piece.x !== null && piece.y !== null) {
+        index.set(`${piece.row},${piece.col}`, piece);
+      }
+    }
+    return index;
+  };
+
   while (changed) {
     changed = false;
-    for (let i = 0; i < updated.length; i++) {
-      const a = updated[i];
+    const spatialIndex = buildSpatialIndex(updated);
+
+    // Only check adjacent neighbors (4 directions)
+    for (const a of updated) {
       if (a.x === null || a.y === null) continue;
 
-      for (let j = i + 1; j < updated.length; j++) {
-        const b = updated[j];
-        if (b.x === null || b.y === null) continue;
-        if (a.groupId === b.groupId) continue;
+      // Check all 4 adjacent positions
+      const neighbors = [
+        { dr: -1, dc: 0 },  // top
+        { dr: 1, dc: 0 },   // bottom
+        { dr: 0, dc: -1 },  // left
+        { dr: 0, dc: 1 },   // right
+      ];
 
-        const dr = b.row - a.row;
-        const dc = b.col - a.col;
-        if (Math.abs(dr) + Math.abs(dc) !== 1) continue;
+      for (const { dr, dc } of neighbors) {
+        const neighborKey = `${a.row + dr},${a.col + dc}`;
+        const b = spatialIndex.get(neighborKey);
+
+        if (!b || a.groupId === b.groupId) continue;
 
         const expectedBx = a.x + dc * cellW;
         const expectedBy = a.y + dr * cellH;
-        const dx = b.x - expectedBx;
-        const dy = b.y - expectedBy;
+        const dx = b.x! - expectedBx;
+        const dy = b.y! - expectedBy;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist < threshold) {
@@ -296,7 +413,7 @@ export function trySnap(pieces: PuzzlePiece[]): SnapResult {
           const bLocked = updated.some(p => p.groupId === b.groupId && p.locked);
 
           if (aLocked && bLocked) {
-            // Both locked – merge without shifting (already aligned by guide)
+            // Both locked – merge without shifting
             const oldGroupId = b.groupId;
             for (const p of updated) {
               if (p.groupId === oldGroupId) {
@@ -342,8 +459,13 @@ export function trySnap(pieces: PuzzlePiece[]): SnapResult {
             snappedGroupId = newGroupId;
             changed = true;
           }
+
+          // Break after finding a snap to rebuild spatial index
+          break;
         }
       }
+
+      if (changed) break; // Rebuild spatial index
     }
   }
 
