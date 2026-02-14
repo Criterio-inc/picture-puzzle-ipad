@@ -353,6 +353,9 @@ export function placeAroundPuzzle(
   return positioned;
 }
 
+/**
+ * Optimized snap detection using spatial grid for O(n) complexity instead of O(n²)
+ */
 export function trySnap(pieces: PuzzlePiece[]): SnapResult {
   if (pieces.length < 2) return { pieces, snapped: false, snappedGroupId: null };
 
@@ -366,25 +369,43 @@ export function trySnap(pieces: PuzzlePiece[]): SnapResult {
   let snapped = false;
   let snappedGroupId: number | null = null;
 
+  // Build spatial index: map from "row,col" to piece for O(1) neighbor lookup
+  const buildSpatialIndex = (pieces: typeof updated) => {
+    const index = new Map<string, typeof updated[0]>();
+    for (const piece of pieces) {
+      if (piece.x !== null && piece.y !== null) {
+        index.set(`${piece.row},${piece.col}`, piece);
+      }
+    }
+    return index;
+  };
+
   while (changed) {
     changed = false;
-    for (let i = 0; i < updated.length; i++) {
-      const a = updated[i];
+    const spatialIndex = buildSpatialIndex(updated);
+
+    // Only check adjacent neighbors (4 directions)
+    for (const a of updated) {
       if (a.x === null || a.y === null) continue;
 
-      for (let j = i + 1; j < updated.length; j++) {
-        const b = updated[j];
-        if (b.x === null || b.y === null) continue;
-        if (a.groupId === b.groupId) continue;
+      // Check all 4 adjacent positions
+      const neighbors = [
+        { dr: -1, dc: 0 },  // top
+        { dr: 1, dc: 0 },   // bottom
+        { dr: 0, dc: -1 },  // left
+        { dr: 0, dc: 1 },   // right
+      ];
 
-        const dr = b.row - a.row;
-        const dc = b.col - a.col;
-        if (Math.abs(dr) + Math.abs(dc) !== 1) continue;
+      for (const { dr, dc } of neighbors) {
+        const neighborKey = `${a.row + dr},${a.col + dc}`;
+        const b = spatialIndex.get(neighborKey);
+
+        if (!b || a.groupId === b.groupId) continue;
 
         const expectedBx = a.x + dc * cellW;
         const expectedBy = a.y + dr * cellH;
-        const dx = b.x - expectedBx;
-        const dy = b.y - expectedBy;
+        const dx = b.x! - expectedBx;
+        const dy = b.y! - expectedBy;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist < threshold) {
@@ -392,7 +413,7 @@ export function trySnap(pieces: PuzzlePiece[]): SnapResult {
           const bLocked = updated.some(p => p.groupId === b.groupId && p.locked);
 
           if (aLocked && bLocked) {
-            // Both locked – merge without shifting (already aligned by guide)
+            // Both locked – merge without shifting
             const oldGroupId = b.groupId;
             for (const p of updated) {
               if (p.groupId === oldGroupId) {
@@ -438,8 +459,13 @@ export function trySnap(pieces: PuzzlePiece[]): SnapResult {
             snappedGroupId = newGroupId;
             changed = true;
           }
+
+          // Break after finding a snap to rebuild spatial index
+          break;
         }
       }
+
+      if (changed) break; // Rebuild spatial index
     }
   }
 

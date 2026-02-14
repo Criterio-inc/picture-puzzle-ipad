@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Eraser, Flag } from "lucide-react";
+import { ArrowLeft, Eraser, Flag, Image, Eye, EyeOff } from "lucide-react";
 
 interface PuzzleHeaderProps {
   totalPieces: number;
@@ -8,9 +8,24 @@ interface PuzzleHeaderProps {
   onClearStray: () => void;
   onGiveUp: () => void;
   onBack: () => void;
+  showPreview?: boolean;
+  onTogglePreview?: () => void;
+  showGuide?: boolean;
+  onToggleGuide?: () => void;
 }
 
-const PuzzleHeader = ({ totalPieces, boardCount, trayCount, onClearStray, onGiveUp, onBack }: PuzzleHeaderProps) => {
+const PuzzleHeader = ({
+  totalPieces,
+  boardCount,
+  trayCount,
+  onClearStray,
+  onGiveUp,
+  onBack,
+  showPreview = false,
+  onTogglePreview,
+  showGuide = true,
+  onToggleGuide,
+}: PuzzleHeaderProps) => {
   return (
     <header className="flex items-center justify-between border-b border-border bg-card px-3 py-2">
       <div className="flex items-center gap-2">
@@ -26,6 +41,30 @@ const PuzzleHeader = ({ totalPieces, boardCount, trayCount, onClearStray, onGive
         </div>
       </div>
       <div className="flex items-center gap-1">
+        {onTogglePreview && (
+          <Button
+            variant={showPreview ? "default" : "ghost"}
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={onTogglePreview}
+            title="Visa originalbild"
+          >
+            <Image className="h-3.5 w-3.5" />
+            Förhandsvisa
+          </Button>
+        )}
+        {onToggleGuide && (
+          <Button
+            variant={showGuide ? "default" : "ghost"}
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={onToggleGuide}
+            title="Visa/dölj pusselguide"
+          >
+            {showGuide ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            Guide
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"

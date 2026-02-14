@@ -20,6 +20,8 @@ const PuzzleGame = () => {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [trayExpanded, setTrayExpanded] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [showGuide, setShowGuide] = useState(true);
   const [gameId, setGameId] = useState<string | null>(searchParams.get("id"));
   const allPiecesRef = useRef<PuzzlePiece[]>([]);
   const imageDataRef = useRef<string>("");
@@ -249,6 +251,10 @@ const PuzzleGame = () => {
         onClearStray={clearStrayPieces}
         onGiveUp={giveUp}
         onBack={handleBack}
+        showPreview={showPreview}
+        onTogglePreview={() => setShowPreview(!showPreview)}
+        showGuide={showGuide}
+        onToggleGuide={() => setShowGuide(!showGuide)}
       />
       <PuzzleBoard
         pieces={boardPieces}
@@ -258,6 +264,9 @@ const PuzzleGame = () => {
         rows={ROWS}
         guideRect={getGuideRect(allPiecesRef.current, COLS, ROWS)}
         snappedGroupId={snappedGroupId}
+        showPreview={showPreview}
+        showGuide={showGuide}
+        imageUrl={imageDataRef.current}
       />
       <PieceTray
         pieces={trayPieces}

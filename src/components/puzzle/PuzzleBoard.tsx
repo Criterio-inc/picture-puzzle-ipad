@@ -1,7 +1,7 @@
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { PuzzlePiece } from "@/lib/puzzle";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize, Focus, Layers } from "lucide-react";
 
 interface GuideRect {
   x: number;
@@ -18,23 +18,60 @@ interface PuzzleBoardProps {
   rows: number;
   guideRect: GuideRect | null;
   snappedGroupId?: number | null;
+  showPreview?: boolean;
+  showGuide?: boolean;
+  imageUrl?: string;
 }
 
 const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 2;
 
-const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect, snappedGroupId }: PuzzleBoardProps) => {
+const PuzzleBoard = ({
+  pieces,
+  onUpdateGroupPosition,
+  onPieceDrop,
+  guideRect,
+  snappedGroupId,
+  showPreview = false,
+  showGuide = true,
+  imageUrl,
+}: PuzzleBoardProps) => {
   const boardRef = useRef<HTMLDivElement>(null);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [draggingGroupId, setDraggingGroupId] = useState<number | null>(null);
   const lastPointerRef = useRef({ x: 0, y: 0 });
 
   // Zoom & pan state
-  const [zoom, setZoom] = useState(0.4);
+  const [zoom, setZoom] = useState(0.5);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
+  const [initialViewSet, setInitialViewSet] = useState(false);
   const lastPanRef = useRef({ x: 0, y: 0 });
   const pinchDistRef = useRef<number | null>(null);
+
+  // Set initial view to show puzzle when guide rect is available
+  useEffect(() => {
+    if (guideRect && !initialViewSet && boardRef.current) {
+      const viewportWidth = boardRef.current.clientWidth;
+      const viewportHeight = boardRef.current.clientHeight;
+
+      // Calculate zoom to fit puzzle with padding
+      const paddingFactor = 1.6;
+      const zoomX = viewportWidth / (guideRect.width * paddingFactor);
+      const zoomY = viewportHeight / (guideRect.height * paddingFactor);
+      const targetZoom = Math.min(zoomX, zoomY, MAX_ZOOM, 0.6);
+
+      // Center on puzzle
+      const puzzleCenterX = guideRect.x + guideRect.width / 2;
+      const puzzleCenterY = guideRect.y + guideRect.height / 2;
+      const panX = viewportWidth / 2 - puzzleCenterX * targetZoom;
+      const panY = viewportHeight / 2 - puzzleCenterY * targetZoom;
+
+      setZoom(targetZoom);
+      setPan({ x: panX, y: panY });
+      setInitialViewSet(true);
+    }
+  }, [guideRect, initialViewSet]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent, piece: PuzzlePiece) => {
     e.stopPropagation();
@@ -116,6 +153,51 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect, sn
     setPan({ x: 0, y: 0 });
   }, []);
 
+  const fitToPuzzle = useCallback(() => {
+    if (!guideRect) return;
+
+    // Get viewport dimensions
+    const viewportWidth = boardRef.current?.clientWidth || 1024;
+    const viewportHeight = boardRef.current?.clientHeight || 768;
+
+    // Add padding around puzzle (20% on each side)
+    const paddingFactor = 1.4;
+    const puzzleWidthWithPadding = guideRect.width * paddingFactor;
+    const puzzleHeightWithPadding = guideRect.height * paddingFactor;
+
+    // Calculate zoom to fit
+    const zoomX = viewportWidth / puzzleWidthWithPadding;
+    const zoomY = viewportHeight / puzzleHeightWithPadding;
+    const targetZoom = Math.min(zoomX, zoomY, MAX_ZOOM);
+
+    // Calculate pan to center puzzle
+    const puzzleCenterX = guideRect.x + guideRect.width / 2;
+    const puzzleCenterY = guideRect.y + guideRect.height / 2;
+    const panX = viewportWidth / 2 - puzzleCenterX * targetZoom;
+    const panY = viewportHeight / 2 - puzzleCenterY * targetZoom;
+
+    setZoom(targetZoom);
+    setPan({ x: panX, y: panY });
+  }, [guideRect]);
+
+  const focusOnWorkArea = useCallback(() => {
+    if (!guideRect) return;
+
+    // Focus on the work area (pieces below puzzle)
+    const viewportWidth = boardRef.current?.clientWidth || 1024;
+    const viewportHeight = boardRef.current?.clientHeight || 768;
+
+    const workAreaCenterX = guideRect.x + guideRect.width / 2;
+    const workAreaCenterY = guideRect.y + guideRect.height + 400; // Below puzzle
+
+    const targetZoom = 0.5;
+    const panX = viewportWidth / 2 - workAreaCenterX * targetZoom;
+    const panY = viewportHeight / 2 - workAreaCenterY * targetZoom;
+
+    setZoom(targetZoom);
+    setPan({ x: panX, y: panY });
+  }, [guideRect]);
+
   return (
     <div
       ref={boardRef}
@@ -138,6 +220,7 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect, sn
           size="icon"
           className="h-8 w-8"
           onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.3))}
+          title="Zooma in"
         >
           <ZoomIn className="h-4 w-4" />
         </Button>
@@ -146,6 +229,7 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect, sn
           size="icon"
           className="h-8 w-8"
           onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z * 0.7))}
+          title="Zooma ut"
         >
           <ZoomOut className="h-4 w-4" />
         </Button>
@@ -153,7 +237,26 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect, sn
           variant="secondary"
           size="icon"
           className="h-8 w-8"
+          onClick={fitToPuzzle}
+          title="Anpassa till pussel"
+        >
+          <Focus className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-8 w-8"
+          onClick={focusOnWorkArea}
+          title="Visa arbetsytan"
+        >
+          <Layers className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-8 w-8"
           onClick={resetView}
+          title="Återställ vy"
         >
           <Maximize className="h-4 w-4" />
         </Button>
@@ -177,7 +280,7 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect, sn
         }}
       >
         {/* Guide rectangle - puzzle border */}
-        {guideRect && (
+        {guideRect && showGuide && (
           <>
             <div
               className="absolute pointer-events-none"
@@ -206,6 +309,33 @@ const PuzzleBoard = ({ pieces, onUpdateGroupPosition, onPieceDrop, guideRect, sn
               />
             ))}
           </>
+        )}
+
+        {/* Preview overlay */}
+        {showPreview && imageUrl && guideRect && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: guideRect.x,
+              top: guideRect.y,
+              width: guideRect.width,
+              height: guideRect.height,
+              borderRadius: 4,
+              overflow: "hidden",
+              opacity: 0.4,
+              boxShadow: "0 0 20px rgba(0,0,0,0.5)",
+            }}
+          >
+            <img
+              src={imageUrl}
+              alt="Preview"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          </div>
         )}
 
         {pieces.length === 0 && (
