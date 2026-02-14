@@ -13,8 +13,8 @@ const PuzzleGame = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const COLS = Number(searchParams.get("cols")) || 24;
-  const ROWS = Number(searchParams.get("rows")) || 24;
+  const [COLS, setCOLS] = useState(Number(searchParams.get("cols")) || 24);
+  const [ROWS, setROWS] = useState(Number(searchParams.get("rows")) || 24);
   const [trayPieces, setTrayPieces] = useState<PuzzlePiece[]>([]);
   const [boardPieces, setBoardPieces] = useState<PuzzlePiece[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +30,7 @@ const PuzzleGame = () => {
   const boardPiecesRef = useRef<PuzzlePiece[]>([]);
   const trayPiecesRef = useRef<PuzzlePiece[]>([]);
   const gameIdRef = useRef<string | null>(gameId);
-
+  const loadedRef = useRef(false);
   // Keep refs in sync
   useEffect(() => { boardPiecesRef.current = boardPieces; }, [boardPieces]);
   useEffect(() => { trayPiecesRef.current = trayPieces; }, [trayPieces]);
@@ -126,19 +126,25 @@ const PuzzleGame = () => {
   }, [autoSave, navigate]);
 
   useEffect(() => {
+    if (loadedRef.current) return;
     const loadGame = async () => {
       if (gameId && user) {
         const { data } = await supabase
           .from("puzzle_games")
           .select("*")
           .eq("id", gameId)
-          .single();
+          .maybeSingle();
 
         if (data) {
+          loadedRef.current = true;
           imageDataRef.current = data.image_url;
+          const gameCols = data.cols || COLS;
+          const gameRows = data.rows || ROWS;
+          setCOLS(gameCols);
+          setROWS(gameRows);
           const savedTabsConfig = data.pieces_data as unknown as EnhancedTabsConfig | null;
 
-          const result = await splitImage(data.image_url, COLS, ROWS, savedTabsConfig || undefined);
+          const result = await splitImage(data.image_url, gameCols, gameRows, savedTabsConfig || undefined);
           allPiecesRef.current = result.pieces;
           tabsConfigRef.current = result.tabs;
 
@@ -158,6 +164,7 @@ const PuzzleGame = () => {
         return;
       }
       imageDataRef.current = imageData;
+      loadedRef.current = true;
 
       splitImage(imageData, COLS, ROWS).then((result) => {
         allPiecesRef.current = result.pieces;
@@ -171,7 +178,7 @@ const PuzzleGame = () => {
     };
 
     loadGame();
-  }, [navigate, gameId, user, COLS, ROWS]);
+  }, [navigate, gameId, user]);
 
   const toggleSelect = useCallback((id: number) => {
     setSelectedIds((prev) => {
