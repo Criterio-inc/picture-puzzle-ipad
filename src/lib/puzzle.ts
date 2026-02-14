@@ -23,7 +23,7 @@ export interface TabsConfig {
 
 export interface SplitImageResult {
   pieces: PuzzlePiece[];
-  tabs: TabsConfig;
+  tabs: EnhancedTabsConfig;
 }
 
 // Tab configuration - only direction varies for perfect complementary fit
