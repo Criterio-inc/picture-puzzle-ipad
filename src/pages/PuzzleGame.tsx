@@ -37,7 +37,16 @@ const PuzzleGame = () => {
   useEffect(() => { gameIdRef.current = gameId; }, [gameId]);
 
   const autoSave = useCallback(async () => {
-    if (!user || savingRef.current) return;
+    if (!user) {
+      console.warn("Cannot save: User not logged in");
+      return;
+    }
+
+    if (savingRef.current) {
+      console.warn("Already saving, skipping duplicate save");
+      return;
+    }
+
     savingRef.current = true;
 
     const boardData = serializePieces(boardPiecesRef.current) as unknown as Json;
@@ -46,16 +55,25 @@ const PuzzleGame = () => {
 
     try {
       if (gameIdRef.current) {
-        await supabase
+        console.log("Saving game:", gameIdRef.current);
+        const { error } = await supabase
           .from("puzzle_games")
           .update({
             board_pieces: boardData,
             tray_pieces: trayData,
-            tabs_config: tabsData
+            tabs_config: tabsData,
+            updated_at: new Date().toISOString()
           })
           .eq("id", gameIdRef.current);
+
+        if (error) {
+          console.error("Failed to save game:", error);
+        } else {
+          console.log("Game saved successfully");
+        }
       } else {
-        const { data } = await supabase
+        console.log("Creating new game");
+        const { data, error } = await supabase
           .from("puzzle_games")
           .insert({
             user_id: user.id,
@@ -68,15 +86,20 @@ const PuzzleGame = () => {
           })
           .select("id")
           .single();
-        if (data) {
+
+        if (error) {
+          console.error("Failed to create game:", error);
+        } else if (data) {
+          console.log("Game created:", data.id);
           setGameId(data.id);
           gameIdRef.current = data.id;
         }
       }
-    } catch {
-      // Silent fail for auto-save
+    } catch (err) {
+      console.error("Auto-save error:", err);
+    } finally {
+      savingRef.current = false;
     }
-    savingRef.current = false;
   }, [user, COLS, ROWS]);
 
   // Auto-save on page hide / unload
