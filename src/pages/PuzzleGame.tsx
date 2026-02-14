@@ -61,7 +61,7 @@ const PuzzleGame = () => {
           .update({
             board_pieces: boardData,
             tray_pieces: trayData,
-            tabs_config: tabsData,
+            pieces_data: tabsData,
             updated_at: new Date().toISOString()
           })
           .eq("id", gameIdRef.current);
@@ -80,7 +80,7 @@ const PuzzleGame = () => {
             image_url: imageDataRef.current,
             board_pieces: boardData,
             tray_pieces: trayData,
-            tabs_config: tabsData,
+            pieces_data: tabsData,
             cols: COLS,
             rows: ROWS,
           })
@@ -136,7 +136,7 @@ const PuzzleGame = () => {
 
         if (data) {
           imageDataRef.current = data.image_url;
-          const savedTabsConfig = data.tabs_config as EnhancedTabsConfig | null;
+          const savedTabsConfig = data.pieces_data as unknown as EnhancedTabsConfig | null;
 
           const result = await splitImage(data.image_url, COLS, ROWS, savedTabsConfig || undefined);
           allPiecesRef.current = result.pieces;
