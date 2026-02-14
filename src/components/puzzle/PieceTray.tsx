@@ -37,7 +37,7 @@ const PieceTray = ({
   onToggleExpand,
 }: PieceTrayProps) => {
   const selectedCount = selectedIds.size;
-  const [sortMode, setSortMode] = useState<SortMode>("edge-first");
+  const [sortMode, setSortMode] = useState<SortMode>("default");  // Changed to "default" for random order
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
 
   // Calculate grid dimensions from pieces
@@ -148,11 +148,15 @@ const PieceTray = ({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setSortMode(sortMode === "edge-first" ? "position" : "edge-first")}
+            onClick={() => {
+              if (sortMode === "default") setSortMode("edge-first");
+              else if (sortMode === "edge-first") setSortMode("position");
+              else setSortMode("default");
+            }}
             className="h-7 text-xs"
           >
             <ArrowUpDown className="h-3 w-3 mr-1" />
-            {sortMode === "edge-first" ? "Kanter först" : "Position"}
+            {sortMode === "default" ? "Blandat" : sortMode === "edge-first" ? "Kanter först" : "Position"}
           </Button>
         </div>
       )}
