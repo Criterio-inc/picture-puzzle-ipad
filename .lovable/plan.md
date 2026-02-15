@@ -1,52 +1,61 @@
 
 
-# Klassiska Ravensburger-liknande pusselbitar
+# Fix: Runda Ravensburger-bitar, synliga bitar i ladan, helskarms-guide
 
-## Vad som andras
+## Tre problem att losa
 
-Bitarnas form ska matcha referensbilden: runda, fylliga flikar med smal hals och bred, cirkulär huvud -- den klassiska Ravensburger-stilen. Inga andra forandringar (inga gap-fixar, inga layoutandringar -- enbart formen).
+### 1. Bitarnas form ar inte rund nog (drawJigsawSide)
 
-## Teknisk andring
+Nuvarande bezier-kurvor ger en for kantig/platt form. Problemet ar att kontrollpunkterna i `drawJigsawSide` inte skapar den klassiska "svampformen" -- halsen ar for bred och huvudet for platt. 
 
-### Fil: `src/lib/puzzle.ts`
+**Losning**: Skriva om bezier-kurvorna i `drawJigsawSide` (rad 72-135) med nya kontrollpunkter som ger:
+- Tydligare inbuktning vid halsen (smalare midja)
+- Bredare, mer cirkulart huvud som sticker ut mer
+- Mjukare overgång mellan hals och huvud
 
-**1. Uppdatera `FIXED_TAB_PARAMS` (rad 40-46)**
-
-Nuvarande varden ger for smala, spetsiga flikar. Nya varden for att matcha referensbilden:
-
+Nya parametrar i `FIXED_TAB_PARAMS`:
 ```text
-posStart: 0.34       (oforandrad, var tabben borjar langs kanten)
-posEnd: 0.66         (oforandrad)
-neckWidth: 0.06      (smalare hals: 0.10 -> 0.06)
-tabHeight: 0.30      (hogre flik: 0.28 -> 0.30)
-headRadius: 0.18     (storre rundning: 0.15 -> 0.18)
+posStart: 0.35
+posEnd: 0.65
+neckWidth: 0.04      (smalare hals for tydligare midja)
+tabHeight: 0.28      (hogre flik)
+headWidth: 0.22      (bredare huvud relativt halsen)
 ```
 
-**2. Omskriven `drawJigsawSide`-funktion (rad 72-136)**
+Ny `drawJigsawSide` med 6 bezier-kurvor:
+1. Rak linje till neckStart
+2. Inbuktning: kanten gar INAT lite innan halsen (skapar den typiska "insvangningen")
+3. Hals uppat: smal passage med tydlig midja
+4. Vanster sida av huvudet: bred utsvangning med stor radie
+5. Hoger sida av huvudet: symmetrisk spegelbild
+6. Hals nerat och tillbaka till kanten med insvangning
+7. Rak linje till slut
 
-Nuvarande implementering anvander 4 bezier-kurvor som ger en alltfor smal och kantig form. Den nya implementeringen anvander en mer anatomiskt korrekt kurva med tydliga faser:
+Den stora skillnaden mot nuvarande: huvudet ska vara markant bredare an halsen (ca 3-4x), och det ska finnas en liten "indrag" precis vid halsens start for att skapa den typiska Ravensburger-formen.
 
-1. Rak linje till halsens start
-2. Mjuk insvangning in mot halsen (smal, tydlig midja)
-3. Utsvangning fran halsen till flikens breda huvud (cirkulart, stort)
-4. Avrundad topp pa flikens huvud (bred, rund)
-5. Symmetrisk nergång tillbaka genom halsen
-6. Rak linje till kanten slut
+### 2. Vissa bitar SYNS INTE i ladan
 
-Nyckelskillnader mot nuvarande:
-- Halsen ar smalare och mer uttalad (tydlig midja)
-- Huvudet ar bredare och mer cirkulart (storre radie i bezierkurvorna)
-- Overgangen fran hals till huvud ar mjukare med fler kontrollpunkter
-- Formen ar mer symmetrisk och "rund" overall
+Problemet ar att bitarnas rendering i `PieceTray` beraknar `size` baserat pa `displayWidth * 0.55` men `displayWidth` inkluderar tab-marginaler (`tabW * 2`). For bitar med mesta av sin bild i tab-omradet (t.ex. hornbitar med tva platta sidor) kan bilddatan vara nastan helt transparent, vilket gor dem osynliga.
 
-**3. 3D-effekter oforandrade**
+**Losning** i `PieceTray.tsx` (rad 178-180): 
+- Oka minsta storlek och skalningsfaktor
+- Andra fran `0.55` till `0.45` och satt `minSize` hogre (80px)
+- Lagg till en subtil bakgrund pa varje bit sa att aven nastan-transparenta bitar syns
 
-Skugg- och highlight-blocken (rad 226-252) andras INTE. De har redan `strokeStyle = "transparent"` med `stroke()` som enbart driver skuggeffekten. Bitarnas visuella djup bevaras.
+### 3. Guide-rektangeln fyller INTE hela skarmen
+
+Anvandaren vill att pusslets guide ska matcha hela viewporten -- skarmens horn = pusslets horn. Just nu har `fitToPuzzle` en `paddingFactor` pa 1.4 och initial view har padding pa 1.1 med 20px margin.
+
+**Losning** i `PuzzleBoard.tsx`:
+- Initial view (rad 53-71): Satt `paddingFactor = 1.0` och `panX = 0, panY = 0` sa guiden precis fyller viewporten
+- `fitToPuzzle` (rad 154-179): Andra `paddingFactor` fran `1.4` till `1.0` sa den passar exakt
+
+Aven ta bort harnmarkorerna (L-formade horn) da de inte behovs nar guiden matchar skarmens kanter.
 
 ## Sammanfattning
 
 | Fil | Andring |
 |---|---|
-| `src/lib/puzzle.ts` | Justerade `FIXED_TAB_PARAMS` + omskriven `drawJigsawSide` for runda Ravensburger-flikar med bred rund huvud och smal hals |
-
-Inga andra filer andras. Bitarnas rendering, klippning, snapping och 3D-effekter ar identiska -- enbart kurvgeometrin uppdateras.
+| `src/lib/puzzle.ts` | Omskriven `drawJigsawSide` med nya bezier-kontrollpunkter for rund Ravensburger-form. Justerade `FIXED_TAB_PARAMS`. |
+| `src/components/puzzle/PieceTray.tsx` | Oka bitstorlek i ladan och lagg till bakgrundsfarg sa alla bitar syns. |
+| `src/components/puzzle/PuzzleBoard.tsx` | Satt paddingFactor=1.0 och pan=(0,0) sa guiden fyller hela skarmen. Ta bort hornmarkoer. |
