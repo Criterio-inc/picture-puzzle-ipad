@@ -249,8 +249,7 @@ const PuzzleGame = () => {
       if (snapResult.snapped || guideResult.snapped) {
         const gid = guideResult.snappedGroupId ?? snapResult.snappedGroupId;
         setSnappedGroupId(gid);
-        setTimeout(() => setSnappedGroupId(null), 600);
-        toast.success("Klick! ✨", { duration: 1000 });
+        setTimeout(() => setSnappedGroupId(null), 700);
       }
 
       const groups = new Set(guideResult.pieces.map((p) => p.groupId));
