@@ -38,11 +38,11 @@ export interface EnhancedTabsConfig {
 
 // Fixed tab parameters for consistent, professional fit
 const FIXED_TAB_PARAMS = {
-  posStart: 0.35,      // Where tab starts (fixed for perfect fit)
-  posEnd: 0.65,        // Where tab ends (fixed for perfect fit)
-  neckWidth: 0.10,     // Neck width ratio (fixed)
-  tabHeight: 0.28,     // Tab height ratio (fixed)
-  headRadius: 0.15,    // Head radius ratio (fixed)
+  posStart: 0.34,      // Where tab starts along the edge
+  posEnd: 0.66,        // Where tab ends along the edge
+  neckWidth: 0.06,     // Narrow neck for classic Ravensburger look
+  tabHeight: 0.30,     // Taller tab for prominent knob
+  headRadius: 0.18,    // Larger, rounder head
 };
 
 function generateRandomTabParams(): TabParams {
@@ -68,7 +68,7 @@ function generateTabsConfig(rows: number, cols: number): EnhancedTabsConfig {
   return { horizontal, vertical };
 }
 
-// Professional Ravensburger-style jigsaw tab with consistent shape
+// Classic Ravensburger-style jigsaw tab: round head, narrow neck
 function drawJigsawSide(
   ctx: CanvasRenderingContext2D,
   x0: number, y0: number,
@@ -88,47 +88,46 @@ function drawJigsawSide(
   const nx = -uy * tabParams.dir;
   const ny = ux * tabParams.dir;
 
-  // Use fixed parameters for perfect complementary fit
   const neckStart = FIXED_TAB_PARAMS.posStart;
   const neckEnd = FIXED_TAB_PARAMS.posEnd;
-  const neckWidth = len * FIXED_TAB_PARAMS.neckWidth;
-  const tabHeight = len * FIXED_TAB_PARAMS.tabHeight;
-  const headRadius = len * FIXED_TAB_PARAMS.headRadius;
+  const neckW = len * FIXED_TAB_PARAMS.neckWidth;
+  const tabH = len * FIXED_TAB_PARAMS.tabHeight;
+  const headR = len * FIXED_TAB_PARAMS.headRadius;
+  const mid = (neckStart + neckEnd) / 2;
 
-  const midPoint = (neckStart + neckEnd) / 2;
+  // Point helper
+  const px = (t: number, n: number) => x0 + dx * t + nx * n;
+  const py = (t: number, n: number) => y0 + dy * t + ny * n;
 
   // 1. Straight to neck start
-  ctx.lineTo(x0 + dx * neckStart, y0 + dy * neckStart);
+  ctx.lineTo(px(neckStart, 0), py(neckStart, 0));
 
-  // 2. Slight inward curve at neck entrance
-  const entryCurvePoint = neckStart + (midPoint - neckStart) * 0.25;
+  // 2. Inward curve into narrow neck
   ctx.bezierCurveTo(
-    x0 + dx * (neckStart + 0.01), y0 + dy * (neckStart + 0.01),
-    x0 + dx * (neckStart + 0.03) + nx * neckWidth * 0.3, y0 + dy * (neckStart + 0.03) + ny * neckWidth * 0.3,
-    x0 + dx * entryCurvePoint + nx * neckWidth, y0 + dy * entryCurvePoint + ny * neckWidth
+    px(neckStart + 0.02, 0), py(neckStart + 0.02, 0),
+    px(neckStart + 0.04, neckW), py(neckStart + 0.04, neckW),
+    px(mid - 0.08, neckW), py(mid - 0.08, neckW)
   );
 
-  // 3. Left side of round knob head
-  const leftHeadPoint = midPoint - 0.05;
+  // 3. Neck to wide head (left side) — flare outward
   ctx.bezierCurveTo(
-    x0 + dx * (midPoint - 0.15) + nx * (tabHeight * 0.7), y0 + dy * (midPoint - 0.15) + ny * (tabHeight * 0.7),
-    x0 + dx * (midPoint - 0.12) + nx * tabHeight, y0 + dy * (midPoint - 0.12) + ny * tabHeight,
-    x0 + dx * midPoint + nx * tabHeight, y0 + dy * midPoint + ny * tabHeight
+    px(mid - 0.10, tabH * 0.55), py(mid - 0.10, tabH * 0.55),
+    px(mid - 0.10, tabH), py(mid - 0.10, tabH),
+    px(mid, tabH), py(mid, tabH)
   );
 
-  // 4. Right side of round knob head (mirror)
-  const exitCurvePoint = midPoint + (neckEnd - midPoint) * 0.75;
+  // 4. Round head top (right side) — mirror
   ctx.bezierCurveTo(
-    x0 + dx * (midPoint + 0.12) + nx * tabHeight, y0 + dy * (midPoint + 0.12) + ny * tabHeight,
-    x0 + dx * (midPoint + 0.15) + nx * (tabHeight * 0.7), y0 + dy * (midPoint + 0.15) + ny * (tabHeight * 0.7),
-    x0 + dx * exitCurvePoint + nx * neckWidth, y0 + dy * exitCurvePoint + ny * neckWidth
+    px(mid + 0.10, tabH), py(mid + 0.10, tabH),
+    px(mid + 0.10, tabH * 0.55), py(mid + 0.10, tabH * 0.55),
+    px(mid + 0.08, neckW), py(mid + 0.08, neckW)
   );
 
-  // 5. Neck closing
+  // 5. Neck closing — back to edge
   ctx.bezierCurveTo(
-    x0 + dx * (neckEnd - 0.03) + nx * neckWidth * 0.3, y0 + dy * (neckEnd - 0.03) + ny * neckWidth * 0.3,
-    x0 + dx * (neckEnd - 0.01), y0 + dy * (neckEnd - 0.01),
-    x0 + dx * neckEnd, y0 + dy * neckEnd
+    px(neckEnd - 0.04, neckW), py(neckEnd - 0.04, neckW),
+    px(neckEnd - 0.02, 0), py(neckEnd - 0.02, 0),
+    px(neckEnd, 0), py(neckEnd, 0)
   );
 
   // 6. Straight to end
