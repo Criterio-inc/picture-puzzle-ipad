@@ -1,7 +1,7 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import { PuzzlePiece } from "@/lib/puzzle";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut, Maximize, Focus, Layers } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize, Focus } from "lucide-react";
 
 interface GuideRect {
   x: number;
@@ -55,17 +55,15 @@ const PuzzleBoard = ({
       const viewportWidth = boardRef.current.clientWidth;
       const viewportHeight = boardRef.current.clientHeight;
 
-      // Calculate zoom to fit puzzle with padding
-      const paddingFactor = 1.6;
+      // Fit puzzle to viewport with small padding
+      const paddingFactor = 1.1;
       const zoomX = viewportWidth / (guideRect.width * paddingFactor);
       const zoomY = viewportHeight / (guideRect.height * paddingFactor);
-      const targetZoom = Math.min(zoomX, zoomY, MAX_ZOOM, 0.6);
+      const targetZoom = Math.min(zoomX, zoomY, MAX_ZOOM);
 
-      // Center on puzzle
-      const puzzleCenterX = guideRect.x + guideRect.width / 2;
-      const puzzleCenterY = guideRect.y + guideRect.height / 2;
-      const panX = viewportWidth / 2 - puzzleCenterX * targetZoom;
-      const panY = viewportHeight / 2 - puzzleCenterY * targetZoom;
+      // Align puzzle top-left near viewport top-left with small margin
+      const panX = 20;
+      const panY = 20;
 
       setZoom(targetZoom);
       setPan({ x: panX, y: panY });
@@ -180,23 +178,6 @@ const PuzzleBoard = ({
     setPan({ x: panX, y: panY });
   }, [guideRect]);
 
-  const focusOnWorkArea = useCallback(() => {
-    if (!guideRect) return;
-
-    // Focus on the work area (pieces below puzzle)
-    const viewportWidth = boardRef.current?.clientWidth || 1024;
-    const viewportHeight = boardRef.current?.clientHeight || 768;
-
-    const workAreaCenterX = guideRect.x + guideRect.width / 2;
-    const workAreaCenterY = guideRect.y + guideRect.height + 400; // Below puzzle
-
-    const targetZoom = 0.5;
-    const panX = viewportWidth / 2 - workAreaCenterX * targetZoom;
-    const panY = viewportHeight / 2 - workAreaCenterY * targetZoom;
-
-    setZoom(targetZoom);
-    setPan({ x: panX, y: panY });
-  }, [guideRect]);
 
   return (
     <div
@@ -241,15 +222,6 @@ const PuzzleBoard = ({
           title="Anpassa till pussel"
         >
           <Focus className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="secondary"
-          size="icon"
-          className="h-8 w-8"
-          onClick={focusOnWorkArea}
-          title="Visa arbetsytan"
-        >
-          <Layers className="h-4 w-4" />
         </Button>
         <Button
           variant="secondary"
@@ -356,9 +328,12 @@ const PuzzleBoard = ({
                 left: piece.x ?? 0,
                 top: piece.y ?? 0,
                 zIndex: isDraggingGroup ? 100 : 1,
-                transition: isDraggingGroup ? "none" : "filter 0.15s",
+                transition: isDraggingGroup
+                  ? "none"
+                  : "left 80ms ease-out, top 80ms ease-out, filter 0.15s, transform 0.12s ease-out",
+                transform: isDraggingGroup ? "scale(1.05)" : "scale(1)",
                 filter: isDraggingGroup
-                  ? "drop-shadow(0 4px 8px rgba(0,0,0,0.3))"
+                  ? "drop-shadow(0 6px 12px rgba(0,0,0,0.35))"
                   : isSnapped
                     ? "drop-shadow(0 0 12px rgba(74,222,128,0.8))"
                     : "drop-shadow(0 1px 2px rgba(0,0,0,0.15))",

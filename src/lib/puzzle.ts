@@ -14,7 +14,7 @@ export interface PuzzlePiece {
   locked: boolean;
 }
 
-export const PUZZLE_ORIGIN = { x: 800, y: 800 };
+export const PUZZLE_ORIGIN = { x: 0, y: 0 };
 
 export interface TabsConfig {
   horizontal: number[][];
@@ -223,38 +223,30 @@ export function splitImage(
           );
           ctx.restore();
 
-          // 3D effect: dark shadow on bottom-right edges
+          // 3D effect: subtle shadow for depth (no stroke to avoid gaps)
           ctx.save();
           drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
           ctx.clip();
-          ctx.shadowColor = "rgba(0,0,0,0.35)";
-          ctx.shadowBlur = 4;
-          ctx.shadowOffsetX = 2;
-          ctx.shadowOffsetY = 2;
-          drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
-          ctx.strokeStyle = "rgba(0,0,0,0.25)";
-          ctx.lineWidth = 2.5;
-          ctx.stroke();
-          ctx.restore();
-
-          // 3D effect: light highlight on top-left edges
-          ctx.save();
-          drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
-          ctx.clip();
-          ctx.shadowColor = "rgba(255,255,255,0.4)";
+          ctx.shadowColor = "rgba(0,0,0,0.3)";
           ctx.shadowBlur = 3;
-          ctx.shadowOffsetX = -1.5;
-          ctx.shadowOffsetY = -1.5;
+          ctx.shadowOffsetX = 1.5;
+          ctx.shadowOffsetY = 1.5;
           drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
-          ctx.strokeStyle = "rgba(255,255,255,0.2)";
-          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = "transparent";
+          ctx.lineWidth = 1;
           ctx.stroke();
           ctx.restore();
 
-          // Outer border
+          // 3D effect: subtle highlight (no stroke to avoid gaps)
           ctx.save();
           drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
-          ctx.strokeStyle = "rgba(0,0,0,0.15)";
+          ctx.clip();
+          ctx.shadowColor = "rgba(255,255,255,0.3)";
+          ctx.shadowBlur = 2;
+          ctx.shadowOffsetX = -1;
+          ctx.shadowOffsetY = -1;
+          drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
+          ctx.strokeStyle = "transparent";
           ctx.lineWidth = 1;
           ctx.stroke();
           ctx.restore();
@@ -323,21 +315,19 @@ export function placeAroundPuzzle(
   const puzzleLeft = PUZZLE_ORIGIN.x;
   const puzzleTop = PUZZLE_ORIGIN.y;
 
-  // Place pieces to the LEFT of the puzzle in a compact grid
-  // This keeps them visible when using "Fit to puzzle" view
-  const pieceSpacing = Math.max(sample.displayWidth, sample.displayHeight) + 15; // Compact 15px gap
-  const maxColumns = 4; // Max 4 pieces per row for compact layout
+  // Place pieces BELOW the puzzle in a compact grid
+  const pieceSpacing = Math.max(sample.displayWidth, sample.displayHeight) + 15;
+  const maxColumns = Math.max(4, Math.ceil(Math.sqrt(piecesToPlace.length)));
 
-  // Work area starts left of puzzle with margin
-  const workAreaRight = puzzleLeft - 80;  // 80px margin from puzzle
-  const workAreaTop = puzzleTop;  // Align with puzzle top
+  // Work area starts below puzzle with margin
+  const workAreaLeft = puzzleLeft;
+  const workAreaTop = puzzleTop + puzzleHeight + 100;
 
   const positioned = piecesToPlace.map((piece, index) => {
     const row = Math.floor(index / maxColumns);
     const col = index % maxColumns;
 
-    // Place from right to left, top to bottom
-    const x = workAreaRight - (col + 1) * pieceSpacing;
+    const x = workAreaLeft + col * pieceSpacing;
     const y = workAreaTop + row * pieceSpacing;
 
     return {
