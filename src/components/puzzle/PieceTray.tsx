@@ -175,8 +175,8 @@ const PieceTray = ({
                 const pieceIsEdge = isEdgePiece(piece, totalRows, totalCols);
                 const pieceIsCorner = isCornerPiece(piece, totalRows, totalCols);
 
-                // Render pieces at visible size
-                const size = Math.max(piece.displayWidth * 0.45, 80);
+                // Render pieces at ~70-90px size
+                const size = Math.max(piece.displayWidth * 0.55, 70);
                 const h = size * (piece.displayHeight / piece.displayWidth);
 
                 return (
@@ -191,7 +191,7 @@ const PieceTray = ({
                             ? "border-blue-400/30"
                             : "border-transparent"
                     }`}
-                    style={{ width: size, height: h, background: "rgba(255,255,255,0.06)" }}
+                    style={{ width: size, height: h }}
                     onClick={() => onToggleSelect(piece.id)}
                   >
                     <img

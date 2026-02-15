@@ -14,7 +14,7 @@ export interface PuzzlePiece {
   locked: boolean;
 }
 
-export const PUZZLE_ORIGIN = { x: 0, y: 0 };
+export const PUZZLE_ORIGIN = { x: 800, y: 800 };
 
 export interface TabsConfig {
   horizontal: number[][];
@@ -38,11 +38,11 @@ export interface EnhancedTabsConfig {
 
 // Fixed tab parameters for consistent, professional fit
 const FIXED_TAB_PARAMS = {
-  posStart: 0.35,
-  posEnd: 0.65,
-  neckWidth: 0.04,     // Very narrow neck for pronounced waist
-  tabHeight: 0.28,     // Tab height
-  headWidth: 0.22,     // Wide circular head (much wider than neck)
+  posStart: 0.35,      // Where tab starts (fixed for perfect fit)
+  posEnd: 0.65,        // Where tab ends (fixed for perfect fit)
+  neckWidth: 0.10,     // Neck width ratio (fixed)
+  tabHeight: 0.28,     // Tab height ratio (fixed)
+  headRadius: 0.15,    // Head radius ratio (fixed)
 };
 
 function generateRandomTabParams(): TabParams {
@@ -68,7 +68,7 @@ function generateTabsConfig(rows: number, cols: number): EnhancedTabsConfig {
   return { horizontal, vertical };
 }
 
-// Classic Ravensburger-style jigsaw tab: round mushroom head, very narrow neck
+// Professional Ravensburger-style jigsaw tab with consistent shape
 function drawJigsawSide(
   ctx: CanvasRenderingContext2D,
   x0: number, y0: number,
@@ -88,62 +88,50 @@ function drawJigsawSide(
   const nx = -uy * tabParams.dir;
   const ny = ux * tabParams.dir;
 
-  const { posStart, posEnd, neckWidth, tabHeight, headWidth } = FIXED_TAB_PARAMS;
-  const mid = (posStart + posEnd) / 2;
-  const nW = len * neckWidth;
-  const tH = len * tabHeight;
-  const hW = len * headWidth;
+  // Use fixed parameters for perfect complementary fit
+  const neckStart = FIXED_TAB_PARAMS.posStart;
+  const neckEnd = FIXED_TAB_PARAMS.posEnd;
+  const neckWidth = len * FIXED_TAB_PARAMS.neckWidth;
+  const tabHeight = len * FIXED_TAB_PARAMS.tabHeight;
+  const headRadius = len * FIXED_TAB_PARAMS.headRadius;
 
-  // Point helper: t = position along edge (0-1), n = offset perpendicular
-  const px = (t: number, n: number) => x0 + dx * t + nx * n;
-  const py = (t: number, n: number) => y0 + dy * t + ny * n;
+  const midPoint = (neckStart + neckEnd) / 2;
 
-  // 1. Straight line to where the tab begins
-  ctx.lineTo(px(posStart, 0), py(posStart, 0));
+  // 1. Straight to neck start
+  ctx.lineTo(x0 + dx * neckStart, y0 + dy * neckStart);
 
-  // 2. Slight inward dip before neck (classic Ravensburger indent)
+  // 2. Slight inward curve at neck entrance
+  const entryCurvePoint = neckStart + (midPoint - neckStart) * 0.25;
   ctx.bezierCurveTo(
-    px(posStart + 0.01, -nW * 0.3), py(posStart + 0.01, -nW * 0.3),
-    px(posStart + 0.03, -nW * 0.3), py(posStart + 0.03, -nW * 0.3),
-    px(posStart + 0.04, nW * 0.5), py(posStart + 0.04, nW * 0.5)
+    x0 + dx * (neckStart + 0.01), y0 + dy * (neckStart + 0.01),
+    x0 + dx * (neckStart + 0.03) + nx * neckWidth * 0.3, y0 + dy * (neckStart + 0.03) + ny * neckWidth * 0.3,
+    x0 + dx * entryCurvePoint + nx * neckWidth, y0 + dy * entryCurvePoint + ny * neckWidth
   );
 
-  // 3. Narrow neck going up
+  // 3. Left side of round knob head
+  const leftHeadPoint = midPoint - 0.05;
   ctx.bezierCurveTo(
-    px(posStart + 0.05, nW), py(posStart + 0.05, nW),
-    px(mid - 0.06, nW), py(mid - 0.06, nW),
-    px(mid - 0.06, tH * 0.45), py(mid - 0.06, tH * 0.45)
+    x0 + dx * (midPoint - 0.15) + nx * (tabHeight * 0.7), y0 + dy * (midPoint - 0.15) + ny * (tabHeight * 0.7),
+    x0 + dx * (midPoint - 0.12) + nx * tabHeight, y0 + dy * (midPoint - 0.12) + ny * tabHeight,
+    x0 + dx * midPoint + nx * tabHeight, y0 + dy * midPoint + ny * tabHeight
   );
 
-  // 4. Left side of wide head — flare out dramatically
+  // 4. Right side of round knob head (mirror)
+  const exitCurvePoint = midPoint + (neckEnd - midPoint) * 0.75;
   ctx.bezierCurveTo(
-    px(mid - 0.07, tH * 0.85), py(mid - 0.07, tH * 0.85),
-    px(mid - hW * 0.6, tH * 1.05), py(mid - hW * 0.6, tH * 1.05),
-    px(mid, tH * 1.05), py(mid, tH * 1.05)
+    x0 + dx * (midPoint + 0.12) + nx * tabHeight, y0 + dy * (midPoint + 0.12) + ny * tabHeight,
+    x0 + dx * (midPoint + 0.15) + nx * (tabHeight * 0.7), y0 + dy * (midPoint + 0.15) + ny * (tabHeight * 0.7),
+    x0 + dx * exitCurvePoint + nx * neckWidth, y0 + dy * exitCurvePoint + ny * neckWidth
   );
 
-  // 5. Right side of wide head — symmetric mirror
+  // 5. Neck closing
   ctx.bezierCurveTo(
-    px(mid + hW * 0.6, tH * 1.05), py(mid + hW * 0.6, tH * 1.05),
-    px(mid + 0.07, tH * 0.85), py(mid + 0.07, tH * 0.85),
-    px(mid + 0.06, tH * 0.45), py(mid + 0.06, tH * 0.45)
+    x0 + dx * (neckEnd - 0.03) + nx * neckWidth * 0.3, y0 + dy * (neckEnd - 0.03) + ny * neckWidth * 0.3,
+    x0 + dx * (neckEnd - 0.01), y0 + dy * (neckEnd - 0.01),
+    x0 + dx * neckEnd, y0 + dy * neckEnd
   );
 
-  // 6. Right neck going back down
-  ctx.bezierCurveTo(
-    px(mid + 0.06, nW), py(mid + 0.06, nW),
-    px(posEnd - 0.05, nW), py(posEnd - 0.05, nW),
-    px(posEnd - 0.04, nW * 0.5), py(posEnd - 0.04, nW * 0.5)
-  );
-
-  // 7. Slight inward dip after neck (symmetric indent)
-  ctx.bezierCurveTo(
-    px(posEnd - 0.03, -nW * 0.3), py(posEnd - 0.03, -nW * 0.3),
-    px(posEnd - 0.01, -nW * 0.3), py(posEnd - 0.01, -nW * 0.3),
-    px(posEnd, 0), py(posEnd, 0)
-  );
-
-  // 8. Straight line to end
+  // 6. Straight to end
   ctx.lineTo(x1, y1);
 }
 
@@ -235,30 +223,38 @@ export function splitImage(
           );
           ctx.restore();
 
-          // 3D effect: subtle shadow for depth (no stroke to avoid gaps)
+          // 3D effect: dark shadow on bottom-right edges
           ctx.save();
           drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
           ctx.clip();
-          ctx.shadowColor = "rgba(0,0,0,0.3)";
-          ctx.shadowBlur = 3;
-          ctx.shadowOffsetX = 1.5;
-          ctx.shadowOffsetY = 1.5;
+          ctx.shadowColor = "rgba(0,0,0,0.35)";
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
           drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
-          ctx.strokeStyle = "transparent";
-          ctx.lineWidth = 1;
+          ctx.strokeStyle = "rgba(0,0,0,0.25)";
+          ctx.lineWidth = 2.5;
           ctx.stroke();
           ctx.restore();
 
-          // 3D effect: subtle highlight (no stroke to avoid gaps)
+          // 3D effect: light highlight on top-left edges
           ctx.save();
           drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
           ctx.clip();
-          ctx.shadowColor = "rgba(255,255,255,0.3)";
-          ctx.shadowBlur = 2;
-          ctx.shadowOffsetX = -1;
-          ctx.shadowOffsetY = -1;
+          ctx.shadowColor = "rgba(255,255,255,0.4)";
+          ctx.shadowBlur = 3;
+          ctx.shadowOffsetX = -1.5;
+          ctx.shadowOffsetY = -1.5;
           drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
-          ctx.strokeStyle = "transparent";
+          ctx.strokeStyle = "rgba(255,255,255,0.2)";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.restore();
+
+          // Outer border
+          ctx.save();
+          drawPiecePath(ctx, tabW, tabH, pieceW, pieceH, top, right, bottom, left);
+          ctx.strokeStyle = "rgba(0,0,0,0.15)";
           ctx.lineWidth = 1;
           ctx.stroke();
           ctx.restore();
@@ -327,19 +323,21 @@ export function placeAroundPuzzle(
   const puzzleLeft = PUZZLE_ORIGIN.x;
   const puzzleTop = PUZZLE_ORIGIN.y;
 
-  // Place pieces BELOW the puzzle in a compact grid
-  const pieceSpacing = Math.max(sample.displayWidth, sample.displayHeight) + 15;
-  const maxColumns = Math.max(4, Math.ceil(Math.sqrt(piecesToPlace.length)));
+  // Place pieces to the LEFT of the puzzle in a compact grid
+  // This keeps them visible when using "Fit to puzzle" view
+  const pieceSpacing = Math.max(sample.displayWidth, sample.displayHeight) + 15; // Compact 15px gap
+  const maxColumns = 4; // Max 4 pieces per row for compact layout
 
-  // Work area starts below puzzle with margin
-  const workAreaLeft = puzzleLeft;
-  const workAreaTop = puzzleTop + puzzleHeight + 100;
+  // Work area starts left of puzzle with margin
+  const workAreaRight = puzzleLeft - 80;  // 80px margin from puzzle
+  const workAreaTop = puzzleTop;  // Align with puzzle top
 
   const positioned = piecesToPlace.map((piece, index) => {
     const row = Math.floor(index / maxColumns);
     const col = index % maxColumns;
 
-    const x = workAreaLeft + col * pieceSpacing;
+    // Place from right to left, top to bottom
+    const x = workAreaRight - (col + 1) * pieceSpacing;
     const y = workAreaTop + row * pieceSpacing;
 
     return {

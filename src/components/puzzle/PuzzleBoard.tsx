@@ -1,7 +1,7 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import { PuzzlePiece } from "@/lib/puzzle";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut, Maximize, Focus } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize, Focus, Layers } from "lucide-react";
 
 interface GuideRect {
   x: number;
@@ -55,14 +55,17 @@ const PuzzleBoard = ({
       const viewportWidth = boardRef.current.clientWidth;
       const viewportHeight = boardRef.current.clientHeight;
 
-      // Fit puzzle exactly to viewport — screen corners = puzzle corners
-      const zoomX = viewportWidth / guideRect.width;
-      const zoomY = viewportHeight / guideRect.height;
-      const targetZoom = Math.min(zoomX, zoomY, MAX_ZOOM);
+      // Calculate zoom to fit puzzle with padding
+      const paddingFactor = 1.6;
+      const zoomX = viewportWidth / (guideRect.width * paddingFactor);
+      const zoomY = viewportHeight / (guideRect.height * paddingFactor);
+      const targetZoom = Math.min(zoomX, zoomY, MAX_ZOOM, 0.6);
 
-      // Center puzzle perfectly
-      const panX = (viewportWidth - guideRect.width * targetZoom) / 2;
-      const panY = (viewportHeight - guideRect.height * targetZoom) / 2;
+      // Center on puzzle
+      const puzzleCenterX = guideRect.x + guideRect.width / 2;
+      const puzzleCenterY = guideRect.y + guideRect.height / 2;
+      const panX = viewportWidth / 2 - puzzleCenterX * targetZoom;
+      const panY = viewportHeight / 2 - puzzleCenterY * targetZoom;
 
       setZoom(targetZoom);
       setPan({ x: panX, y: panY });
@@ -157,9 +160,10 @@ const PuzzleBoard = ({
     const viewportWidth = boardRef.current?.clientWidth || 1024;
     const viewportHeight = boardRef.current?.clientHeight || 768;
 
-    // Fit exactly — no extra padding
-    const puzzleWidthWithPadding = guideRect.width;
-    const puzzleHeightWithPadding = guideRect.height;
+    // Add padding around puzzle (20% on each side)
+    const paddingFactor = 1.4;
+    const puzzleWidthWithPadding = guideRect.width * paddingFactor;
+    const puzzleHeightWithPadding = guideRect.height * paddingFactor;
 
     // Calculate zoom to fit
     const zoomX = viewportWidth / puzzleWidthWithPadding;
@@ -176,6 +180,23 @@ const PuzzleBoard = ({
     setPan({ x: panX, y: panY });
   }, [guideRect]);
 
+  const focusOnWorkArea = useCallback(() => {
+    if (!guideRect) return;
+
+    // Focus on the work area (pieces below puzzle)
+    const viewportWidth = boardRef.current?.clientWidth || 1024;
+    const viewportHeight = boardRef.current?.clientHeight || 768;
+
+    const workAreaCenterX = guideRect.x + guideRect.width / 2;
+    const workAreaCenterY = guideRect.y + guideRect.height + 400; // Below puzzle
+
+    const targetZoom = 0.5;
+    const panX = viewportWidth / 2 - workAreaCenterX * targetZoom;
+    const panY = viewportHeight / 2 - workAreaCenterY * targetZoom;
+
+    setZoom(targetZoom);
+    setPan({ x: panX, y: panY });
+  }, [guideRect]);
 
   return (
     <div
@@ -225,6 +246,15 @@ const PuzzleBoard = ({
           variant="secondary"
           size="icon"
           className="h-8 w-8"
+          onClick={focusOnWorkArea}
+          title="Visa arbetsytan"
+        >
+          <Layers className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-8 w-8"
           onClick={resetView}
           title="Återställ vy"
         >
@@ -265,7 +295,19 @@ const PuzzleBoard = ({
                 boxShadow: "inset 0 0 80px rgba(255,255,255,0.08), 0 0 30px rgba(255,255,255,0.10)",
               }}
             />
-            {/* Corner markers removed — guide matches screen edges */}
+            {/* Corner markers */}
+            {[
+              { left: guideRect.x - 6, top: guideRect.y - 6, borderLeft: "4px solid rgba(255,255,255,0.9)", borderTop: "4px solid rgba(255,255,255,0.9)" },
+              { left: guideRect.x + guideRect.width - 24, top: guideRect.y - 6, borderRight: "4px solid rgba(255,255,255,0.9)", borderTop: "4px solid rgba(255,255,255,0.9)" },
+              { left: guideRect.x - 6, top: guideRect.y + guideRect.height - 24, borderLeft: "4px solid rgba(255,255,255,0.9)", borderBottom: "4px solid rgba(255,255,255,0.9)" },
+              { left: guideRect.x + guideRect.width - 24, top: guideRect.y + guideRect.height - 24, borderRight: "4px solid rgba(255,255,255,0.9)", borderBottom: "4px solid rgba(255,255,255,0.9)" },
+            ].map((style, i) => (
+              <div
+                key={i}
+                className="absolute pointer-events-none"
+                style={{ ...style, width: 30, height: 30 }}
+              />
+            ))}
           </>
         )}
 
@@ -314,12 +356,9 @@ const PuzzleBoard = ({
                 left: piece.x ?? 0,
                 top: piece.y ?? 0,
                 zIndex: isDraggingGroup ? 100 : 1,
-                transition: isDraggingGroup
-                  ? "none"
-                  : "left 80ms ease-out, top 80ms ease-out, filter 0.15s, transform 0.12s ease-out",
-                transform: isDraggingGroup ? "scale(1.05)" : "scale(1)",
+                transition: isDraggingGroup ? "none" : "filter 0.15s",
                 filter: isDraggingGroup
-                  ? "drop-shadow(0 6px 12px rgba(0,0,0,0.35))"
+                  ? "drop-shadow(0 4px 8px rgba(0,0,0,0.3))"
                   : isSnapped
                     ? "drop-shadow(0 0 12px rgba(74,222,128,0.8))"
                     : "drop-shadow(0 1px 2px rgba(0,0,0,0.15))",
