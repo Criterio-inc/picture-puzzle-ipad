@@ -38,11 +38,11 @@ export interface EnhancedTabsConfig {
 
 // Fixed tab parameters for consistent, professional fit
 const FIXED_TAB_PARAMS = {
-  posStart: 0.34,      // Where tab starts along the edge
-  posEnd: 0.66,        // Where tab ends along the edge
-  neckWidth: 0.06,     // Narrow neck for classic Ravensburger look
-  tabHeight: 0.30,     // Taller tab for prominent knob
-  headRadius: 0.18,    // Larger, rounder head
+  posStart: 0.35,
+  posEnd: 0.65,
+  neckWidth: 0.04,     // Very narrow neck for pronounced waist
+  tabHeight: 0.28,     // Tab height
+  headWidth: 0.22,     // Wide circular head (much wider than neck)
 };
 
 function generateRandomTabParams(): TabParams {
@@ -68,7 +68,7 @@ function generateTabsConfig(rows: number, cols: number): EnhancedTabsConfig {
   return { horizontal, vertical };
 }
 
-// Classic Ravensburger-style jigsaw tab: round head, narrow neck
+// Classic Ravensburger-style jigsaw tab: round mushroom head, very narrow neck
 function drawJigsawSide(
   ctx: CanvasRenderingContext2D,
   x0: number, y0: number,
@@ -88,49 +88,62 @@ function drawJigsawSide(
   const nx = -uy * tabParams.dir;
   const ny = ux * tabParams.dir;
 
-  const neckStart = FIXED_TAB_PARAMS.posStart;
-  const neckEnd = FIXED_TAB_PARAMS.posEnd;
-  const neckW = len * FIXED_TAB_PARAMS.neckWidth;
-  const tabH = len * FIXED_TAB_PARAMS.tabHeight;
-  const headR = len * FIXED_TAB_PARAMS.headRadius;
-  const mid = (neckStart + neckEnd) / 2;
+  const { posStart, posEnd, neckWidth, tabHeight, headWidth } = FIXED_TAB_PARAMS;
+  const mid = (posStart + posEnd) / 2;
+  const nW = len * neckWidth;
+  const tH = len * tabHeight;
+  const hW = len * headWidth;
 
-  // Point helper
+  // Point helper: t = position along edge (0-1), n = offset perpendicular
   const px = (t: number, n: number) => x0 + dx * t + nx * n;
   const py = (t: number, n: number) => y0 + dy * t + ny * n;
 
-  // 1. Straight to neck start
-  ctx.lineTo(px(neckStart, 0), py(neckStart, 0));
+  // 1. Straight line to where the tab begins
+  ctx.lineTo(px(posStart, 0), py(posStart, 0));
 
-  // 2. Inward curve into narrow neck
+  // 2. Slight inward dip before neck (classic Ravensburger indent)
   ctx.bezierCurveTo(
-    px(neckStart + 0.02, 0), py(neckStart + 0.02, 0),
-    px(neckStart + 0.04, neckW), py(neckStart + 0.04, neckW),
-    px(mid - 0.08, neckW), py(mid - 0.08, neckW)
+    px(posStart + 0.01, -nW * 0.3), py(posStart + 0.01, -nW * 0.3),
+    px(posStart + 0.03, -nW * 0.3), py(posStart + 0.03, -nW * 0.3),
+    px(posStart + 0.04, nW * 0.5), py(posStart + 0.04, nW * 0.5)
   );
 
-  // 3. Neck to wide head (left side) — flare outward
+  // 3. Narrow neck going up
   ctx.bezierCurveTo(
-    px(mid - 0.10, tabH * 0.55), py(mid - 0.10, tabH * 0.55),
-    px(mid - 0.10, tabH), py(mid - 0.10, tabH),
-    px(mid, tabH), py(mid, tabH)
+    px(posStart + 0.05, nW), py(posStart + 0.05, nW),
+    px(mid - 0.06, nW), py(mid - 0.06, nW),
+    px(mid - 0.06, tH * 0.45), py(mid - 0.06, tH * 0.45)
   );
 
-  // 4. Round head top (right side) — mirror
+  // 4. Left side of wide head — flare out dramatically
   ctx.bezierCurveTo(
-    px(mid + 0.10, tabH), py(mid + 0.10, tabH),
-    px(mid + 0.10, tabH * 0.55), py(mid + 0.10, tabH * 0.55),
-    px(mid + 0.08, neckW), py(mid + 0.08, neckW)
+    px(mid - 0.07, tH * 0.85), py(mid - 0.07, tH * 0.85),
+    px(mid - hW * 0.6, tH * 1.05), py(mid - hW * 0.6, tH * 1.05),
+    px(mid, tH * 1.05), py(mid, tH * 1.05)
   );
 
-  // 5. Neck closing — back to edge
+  // 5. Right side of wide head — symmetric mirror
   ctx.bezierCurveTo(
-    px(neckEnd - 0.04, neckW), py(neckEnd - 0.04, neckW),
-    px(neckEnd - 0.02, 0), py(neckEnd - 0.02, 0),
-    px(neckEnd, 0), py(neckEnd, 0)
+    px(mid + hW * 0.6, tH * 1.05), py(mid + hW * 0.6, tH * 1.05),
+    px(mid + 0.07, tH * 0.85), py(mid + 0.07, tH * 0.85),
+    px(mid + 0.06, tH * 0.45), py(mid + 0.06, tH * 0.45)
   );
 
-  // 6. Straight to end
+  // 6. Right neck going back down
+  ctx.bezierCurveTo(
+    px(mid + 0.06, nW), py(mid + 0.06, nW),
+    px(posEnd - 0.05, nW), py(posEnd - 0.05, nW),
+    px(posEnd - 0.04, nW * 0.5), py(posEnd - 0.04, nW * 0.5)
+  );
+
+  // 7. Slight inward dip after neck (symmetric indent)
+  ctx.bezierCurveTo(
+    px(posEnd - 0.03, -nW * 0.3), py(posEnd - 0.03, -nW * 0.3),
+    px(posEnd - 0.01, -nW * 0.3), py(posEnd - 0.01, -nW * 0.3),
+    px(posEnd, 0), py(posEnd, 0)
+  );
+
+  // 8. Straight line to end
   ctx.lineTo(x1, y1);
 }
 
