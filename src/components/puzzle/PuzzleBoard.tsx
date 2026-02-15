@@ -55,15 +55,14 @@ const PuzzleBoard = ({
       const viewportWidth = boardRef.current.clientWidth;
       const viewportHeight = boardRef.current.clientHeight;
 
-      // Fit puzzle to viewport with small padding
-      const paddingFactor = 1.1;
-      const zoomX = viewportWidth / (guideRect.width * paddingFactor);
-      const zoomY = viewportHeight / (guideRect.height * paddingFactor);
+      // Fit puzzle exactly to viewport — screen corners = puzzle corners
+      const zoomX = viewportWidth / guideRect.width;
+      const zoomY = viewportHeight / guideRect.height;
       const targetZoom = Math.min(zoomX, zoomY, MAX_ZOOM);
 
-      // Align puzzle top-left near viewport top-left with small margin
-      const panX = 20;
-      const panY = 20;
+      // Center puzzle perfectly
+      const panX = (viewportWidth - guideRect.width * targetZoom) / 2;
+      const panY = (viewportHeight - guideRect.height * targetZoom) / 2;
 
       setZoom(targetZoom);
       setPan({ x: panX, y: panY });
@@ -158,10 +157,9 @@ const PuzzleBoard = ({
     const viewportWidth = boardRef.current?.clientWidth || 1024;
     const viewportHeight = boardRef.current?.clientHeight || 768;
 
-    // Add padding around puzzle (20% on each side)
-    const paddingFactor = 1.4;
-    const puzzleWidthWithPadding = guideRect.width * paddingFactor;
-    const puzzleHeightWithPadding = guideRect.height * paddingFactor;
+    // Fit exactly — no extra padding
+    const puzzleWidthWithPadding = guideRect.width;
+    const puzzleHeightWithPadding = guideRect.height;
 
     // Calculate zoom to fit
     const zoomX = viewportWidth / puzzleWidthWithPadding;
@@ -267,19 +265,7 @@ const PuzzleBoard = ({
                 boxShadow: "inset 0 0 80px rgba(255,255,255,0.08), 0 0 30px rgba(255,255,255,0.10)",
               }}
             />
-            {/* Corner markers */}
-            {[
-              { left: guideRect.x - 6, top: guideRect.y - 6, borderLeft: "4px solid rgba(255,255,255,0.9)", borderTop: "4px solid rgba(255,255,255,0.9)" },
-              { left: guideRect.x + guideRect.width - 24, top: guideRect.y - 6, borderRight: "4px solid rgba(255,255,255,0.9)", borderTop: "4px solid rgba(255,255,255,0.9)" },
-              { left: guideRect.x - 6, top: guideRect.y + guideRect.height - 24, borderLeft: "4px solid rgba(255,255,255,0.9)", borderBottom: "4px solid rgba(255,255,255,0.9)" },
-              { left: guideRect.x + guideRect.width - 24, top: guideRect.y + guideRect.height - 24, borderRight: "4px solid rgba(255,255,255,0.9)", borderBottom: "4px solid rgba(255,255,255,0.9)" },
-            ].map((style, i) => (
-              <div
-                key={i}
-                className="absolute pointer-events-none"
-                style={{ ...style, width: 30, height: 30 }}
-              />
-            ))}
+            {/* Corner markers removed — guide matches screen edges */}
           </>
         )}
 
