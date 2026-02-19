@@ -12,10 +12,10 @@
  * and never drops frames.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PieceDef, buildPiecePath, KNOB_SCALE } from './generator';
 import { drawPiece } from './renderer';
-import { getPieceHue, clearHueCache } from './colorSort';
+import { clearHueCache } from './colorSort';
 
 // ─── constants ───────────────────────────────────────────────────────────────
 const PEEK_HEIGHT = 80;           // px visible when closed (handle bar)
@@ -121,7 +121,6 @@ export default function DrawerTray({
 }: DrawerTrayProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [sortMode, setSortMode] = useState<'none' | 'hue'>('none');
 
   // Gesture refs — no re-renders during drag
   const gestureDragging = useRef(false);
@@ -234,28 +233,42 @@ export default function DrawerTray({
 
   // ─── Piece interaction: tap = stage on board, drag = lift & follow finger ──
   function onTrayPiecePointerDown(e: React.PointerEvent, piece: PieceDef) {
-    e.preventDefault();
+    // Do NOT preventDefault here — let the browser decide if it's a scroll or not.
+    // We only capture if the finger moves horizontally or lifts quickly (tap/drag).
     e.stopPropagation();
 
     const startX = e.clientX;
     const startY = e.clientY;
     const startTime = Date.now();
     const pid = e.pointerId;
-    const TAP_MOVE_THRESHOLD = 10; // px — if finger moves more than this, it's a drag
-    const TAP_TIME_THRESHOLD = 300; // ms — if held longer than this before moving, it's a drag
+    const DRAG_THRESHOLD = 8;    // px horizontal or diagonal movement → treat as piece drag
+    const SCROLL_THRESHOLD = 6;  // px downward → let native scroll take over
+    const TAP_TIME = 250;        // ms — quick tap, no movement
 
-    let liftFired = false;
+    let decided = false; // true once we've committed to tap, drag, or scroll
 
     // Capture pointer so we get move/up even if finger slides off element
     (e.target as HTMLElement).setPointerCapture(pid);
 
     function onMove(ev: PointerEvent) {
-      if (ev.pointerId !== pid) return;
+      if (ev.pointerId !== pid || decided) return;
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
-      if (!liftFired && Math.sqrt(dx * dx + dy * dy) > TAP_MOVE_THRESHOLD) {
-        liftFired = true;
-        // It's a drag — close drawer and hand off to PuzzleCanvas
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      if (absDy > SCROLL_THRESHOLD && absDy > absDx) {
+        // Primarily vertical movement → native scroll, release capture
+        decided = true;
+        cleanup();
+        (e.target as HTMLElement).releasePointerCapture(pid);
+        return;
+      }
+
+      if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+        // Diagonal or horizontal movement → piece drag
+        decided = true;
+        ev.preventDefault();
         snapClosed();
         onPieceLift(piece, ev.clientX, ev.clientY, pid);
         cleanup();
@@ -264,43 +277,32 @@ export default function DrawerTray({
 
     function onUp(ev: PointerEvent) {
       if (ev.pointerId !== pid) return;
-      if (!liftFired) {
+      if (!decided) {
         const elapsed = Date.now() - startTime;
         const dx = ev.clientX - startX;
         const dy = ev.clientY - startY;
-        const didMove = Math.sqrt(dx * dx + dy * dy) > TAP_MOVE_THRESHOLD;
-        if (!didMove || elapsed < TAP_TIME_THRESHOLD) {
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < DRAG_THRESHOLD || elapsed < TAP_TIME) {
           // It's a tap — place piece on board without drag
           onPieceTap(piece);
-          // Keep drawer open so user can tap more pieces
         }
       }
       cleanup();
     }
 
     function cleanup() {
-      (e.target as HTMLElement).releasePointerCapture(pid);
       (e.target as HTMLElement).removeEventListener('pointermove', onMove as EventListener);
       (e.target as HTMLElement).removeEventListener('pointerup', onUp as EventListener);
       (e.target as HTMLElement).removeEventListener('pointercancel', onUp as EventListener);
     }
 
-    // Use the captured element's own events (pointer capture routes them here)
     (e.target as HTMLElement).addEventListener('pointermove', onMove as EventListener);
     (e.target as HTMLElement).addEventListener('pointerup', onUp as EventListener);
     (e.target as HTMLElement).addEventListener('pointercancel', onUp as EventListener);
-
   }
 
-  // ─── Sort ────────────────────────────────────────────────────────────────
-  const displayPieces = useMemo(() => {
-    if (sortMode === 'none') return pieces;
-    return [...pieces].sort(
-      (a, b) =>
-        getPieceHue(a, boardImage, boardW, boardH) -
-        getPieceHue(b, boardImage, boardW, boardH),
-    );
-  }, [pieces, sortMode, boardImage, boardW, boardH]);
+  // Pieces are always shown in their original (shuffled) order — never sorted
+  const displayPieces = pieces;
 
   const drawerHeightPx = Math.round(window.innerHeight * OPEN_FRACTION);
 
@@ -325,9 +327,8 @@ export default function DrawerTray({
         display: 'flex',
         flexDirection: 'column',
         willChange: 'transform',
-        // touchAction: 'none' on the whole drawer prevents native scroll interfering
-        // with the handle gesture; the piece grid overrides with 'pan-y' locally
-        touchAction: 'none',
+        // Only block touch on the handle; piece grid uses pan-y for native scroll
+        touchAction: 'pan-x',
       }}
     >
       {/* ── Handle bar ── */}
@@ -383,15 +384,6 @@ export default function DrawerTray({
           >
             {pieces.length} bitar kvar
           </div>
-
-          {/* Sort button */}
-          <button
-            onPointerDown={e => e.stopPropagation()}
-            onClick={() => setSortMode(m => m === 'hue' ? 'none' : 'hue')}
-            style={controlBtnStyle(sortMode === 'hue')}
-          >
-            {sortMode === 'hue' ? '🔀 Blanda' : '🎨 Sortera'}
-          </button>
 
           {/* Guide toggle */}
           <button

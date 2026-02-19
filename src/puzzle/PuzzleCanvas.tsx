@@ -30,9 +30,9 @@ import { SavedPieceState } from '../lib/puzzleSave';
 
 // Snap distance as fraction of piece's smaller dimension.
 const SNAP_FRACTION = 0.22;
-const BOARD_PAD_TOP = 22;
-const BOARD_PAD_SIDE = 18;
-const BOARD_PAD_BOTTOM = DRAWER_PEEK_HEIGHT + 16;
+const BOARD_PAD_TOP = 6;
+const BOARD_PAD_SIDE = 6;
+const BOARD_PAD_BOTTOM = DRAWER_PEEK_HEIGHT + 4;
 
 interface Props {
   image: HTMLImageElement;

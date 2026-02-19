@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 
 const DIFFICULTIES = [
-  { label: 'Lätt', cols: 3, rows: 3, desc: '9 bitar' },
   { label: 'Medel', cols: 5, rows: 4, desc: '20 bitar' },
   { label: 'Svår', cols: 8, rows: 6, desc: '48 bitar' },
   { label: 'Expert', cols: 12, rows: 9, desc: '108 bitar' },
+  { label: 'Mästare', cols: 20, rows: 20, desc: '400 bitar' },
 ];
 
 interface Props {

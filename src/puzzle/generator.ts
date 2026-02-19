@@ -65,9 +65,9 @@ function makeEdge(rng: () => number, isFlat: boolean, isTab: boolean): EdgeDef {
   if (isFlat) return { type: 'flat', size: 1, offset: 0.5, tilt: 0 };
   return {
     type: isTab ? 'tab' : 'blank',
-    size: 0.82 + rng() * 0.36,   // 0.82–1.18
-    offset: 0.34 + rng() * 0.32, // 0.34–0.66
-    tilt: (rng() - 0.5) * 0.28,  // -0.14 – +0.14
+    size: 0.85 + rng() * 0.25,   // 0.85–1.10 (tighter range → more uniform knobs)
+    offset: 0.36 + rng() * 0.28, // 0.36–0.64 (keep knob away from corners)
+    tilt: (rng() - 0.5) * 0.12,  // ±0.06 (much less tilt → no more weird bent pieces)
   };
 }
 
@@ -218,9 +218,9 @@ export function buildPiecePath(
     const cy = y1 + dy * edge.offset - ex * edge.tilt * edgeLen * 0.1;
 
     // Neck width (narrow part where knob meets the edge)
-    const neckW = knobW * 0.38;
+    const neckW = knobW * 0.32;
     // Head half-width (widest part of the round head)
-    const headW = knobW * 0.52;
+    const headW = knobW * 0.50;
 
     // Base points (where neck starts on the edge)
     const b1x = cx - ex * neckW;
@@ -229,7 +229,7 @@ export function buildPiecePath(
     const b2y = cy + ey * neckW;
 
     // Neck shoulder points (where neck widens into head)
-    const shoulderH = knobH * 0.42;
+    const shoulderH = knobH * 0.40;
     const s1x = cx - ex * headW + nx * shoulderH;
     const s1y = cy - ey * headW + ny * shoulderH;
     const s2x = cx + ex * headW + nx * shoulderH;
@@ -242,31 +242,31 @@ export function buildPiecePath(
     // ── Path: edge start → b1 → (neck) → s1 → (head arc) → tip → s2 → b2 → edge end
     path.lineTo(b1x, b1y);
 
-    // Left side of neck, curving out to left shoulder
+    // Left side of neck, curving symmetrically out to left shoulder
     path.bezierCurveTo(
-      b1x + nx * shoulderH * 0.5, b1y + ny * shoulderH * 0.5,   // ctrl1: early rise
-      s1x - nx * knobH * 0.05,    s1y - ny * knobH * 0.05,       // ctrl2: near shoulder
+      b1x + nx * shoulderH * 0.6,  b1y + ny * shoulderH * 0.6,  // ctrl1: smooth rise
+      s1x - nx * knobH * 0.04,     s1y - ny * knobH * 0.04,      // ctrl2: near shoulder
       s1x, s1y,
     );
 
     // Arc across the head: left shoulder → tip
     path.bezierCurveTo(
-      s1x + nx * (knobH - shoulderH) * 0.7, s1y + ny * (knobH - shoulderH) * 0.7,
-      tipX - ex * headW * 0.7,              tipY - ey * headW * 0.7,
+      s1x + nx * (knobH - shoulderH) * 0.75, s1y + ny * (knobH - shoulderH) * 0.75,
+      tipX - ex * headW * 0.65,               tipY - ey * headW * 0.65,
       tipX, tipY,
     );
 
     // Arc across the head: tip → right shoulder
     path.bezierCurveTo(
-      tipX + ex * headW * 0.7,              tipY + ey * headW * 0.7,
-      s2x + nx * (knobH - shoulderH) * 0.7, s2y + ny * (knobH - shoulderH) * 0.7,
+      tipX + ex * headW * 0.65,               tipY + ey * headW * 0.65,
+      s2x + nx * (knobH - shoulderH) * 0.75,  s2y + ny * (knobH - shoulderH) * 0.75,
       s2x, s2y,
     );
 
-    // Right side of neck, curving back to edge
+    // Right side of neck, curving symmetrically back to edge
     path.bezierCurveTo(
-      s2x - nx * knobH * 0.05,    s2y - ny * knobH * 0.05,
-      b2x + nx * shoulderH * 0.5, b2y + ny * shoulderH * 0.5,
+      s2x - nx * knobH * 0.04,     s2y - ny * knobH * 0.04,
+      b2x + nx * shoulderH * 0.6,  b2y + ny * shoulderH * 0.6,
       b2x, b2y,
     );
 
