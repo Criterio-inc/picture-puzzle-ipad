@@ -190,11 +190,24 @@ export default function PuzzleCanvas({
     setBoardReady(state);
 
     // Determine tray pieces
+    // Fisher-Yates shuffle using the same seed (offset so it differs from piece generation)
+    function shuffleArray<T>(arr: T[], shuffleSeed: number): T[] {
+      const a = [...arr];
+      let s = (shuffleSeed ^ 0xdeadbeef) >>> 0;
+      for (let i = a.length - 1; i > 0; i--) {
+        s = Math.imul(s ^ (s >>> 15), s | 1);
+        s ^= s + Math.imul(s ^ (s >>> 7), s | 61);
+        const j = ((s ^ (s >>> 14)) >>> 0) % (i + 1);
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
     let trayPieceList: PieceDef[];
     if (isRestoring) {
       trayPieceList = layout.pieces.filter(p => savedTraySet.has(p.id));
     } else {
-      trayPieceList = [...layout.pieces];
+      trayPieceList = shuffleArray(layout.pieces, seed);
     }
 
     // Set ref first (synchronously), then state
