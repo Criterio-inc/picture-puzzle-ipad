@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 35 25% 94%;
+    --foreground: 30 10% 18%;
+    --primary: 28 55% 42%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 35 15% 86%;
+    --muted-foreground: 30 10% 48%;
+    --border: 35 15% 80%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    height: 100%;
+  }
+
+  body {
+    height: 100%;
+    overflow: hidden;
+    background: hsl(var(--background));
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  canvas {
+    touch-action: none;
+    display: block;
+  }
+}
