@@ -29,7 +29,7 @@ import PuzzleHUD from './PuzzleHUD';
 import { SavedPieceState } from '../lib/puzzleSave';
 
 // Snap distance as fraction of piece's smaller dimension.
-const SNAP_FRACTION = 0.22;
+const SNAP_FRACTION = 0.28;  // slightly more forgiving for group snapping
 const BOARD_PAD_TOP = 6;
 const BOARD_PAD_SIDE = 6;
 const BOARD_PAD_BOTTOM = DRAWER_PEEK_HEIGHT + 4;
@@ -70,6 +70,10 @@ interface Props {
    * Called once after mount so App.tsx can trigger a save before navigating away.
    */
   onRegisterSaveTrigger?: (fn: () => Promise<void>) => void;
+  /**
+   * Gives App.tsx a handle to trigger a new puzzle (shuffle/restart).
+   */
+  onRegisterNewPuzzleTrigger?: (fn: () => void) => void;
 }
 
 interface BoardState {
@@ -79,6 +83,8 @@ interface BoardState {
   boardH: number;
   boardImage: HTMLCanvasElement;
   pieces: PieceDef[];
+  /** Maps piece.id → group ID (shared string among connected pieces) */
+  groups: Map<string, string>;
 }
 
 interface DragState {
@@ -102,6 +108,7 @@ export default function PuzzleCanvas({
   onComplete,
   onSave,
   onRegisterSaveTrigger,
+  onRegisterNewPuzzleTrigger,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<BoardState | null>(null);
@@ -193,7 +200,13 @@ export default function PuzzleCanvas({
       }
     }
 
-    const state: BoardState = { boardX, boardY, boardW, boardH, boardImage: off, pieces: layout.pieces };
+    // Each piece starts in its own group (singleton)
+    const groups = new Map<string, string>();
+    for (const p of layout.pieces) {
+      groups.set(p.id, p.id);
+    }
+
+    const state: BoardState = { boardX, boardY, boardW, boardH, boardImage: off, pieces: layout.pieces, groups };
     boardRef.current = state;
     setBoardReady(state);
 
@@ -234,6 +247,17 @@ export default function PuzzleCanvas({
     snapGlowRef.current = null;
     dragRef.current = null;
   }, [image, cols, rows, seed, loadedPiecesState, loadedTrayIds]);
+
+  // ─── Register new-puzzle trigger with App.tsx ────────────────────────────
+  useEffect(() => {
+    if (!onRegisterNewPuzzleTrigger) return;
+    onRegisterNewPuzzleTrigger(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      buildBoard(rect.width, rect.height);
+    });
+  }, [onRegisterNewPuzzleTrigger, buildBoard]);
 
   // ─── Register save trigger with App.tsx ──────────────────────────────────
   useEffect(() => {
@@ -413,24 +437,120 @@ export default function PuzzleCanvas({
     return Math.min(piece.width, piece.height) * SNAP_FRACTION;
   }
 
+  /**
+   * Get all pieces in the same group as `piece`.
+   */
+  function getGroup(board: BoardState, piece: PieceDef): PieceDef[] {
+    const gid = board.groups.get(piece.id);
+    if (!gid) return [piece];
+    return board.pieces.filter(p => board.groups.get(p.id) === gid);
+  }
+
+  /**
+   * Merge two groups together (union-find style, simple version).
+   * All pieces with groupB's id get groupA's id.
+   */
+  function mergeGroups(board: BoardState, pieceA: PieceDef, pieceB: PieceDef) {
+    const gidA = board.groups.get(pieceA.id) ?? pieceA.id;
+    const gidB = board.groups.get(pieceB.id) ?? pieceB.id;
+    if (gidA === gidB) return;
+    for (const [pid, gid] of board.groups) {
+      if (gid === gidB) board.groups.set(pid, gidA);
+    }
+  }
+
+  /**
+   * Try to snap `piece` to:
+   * 1. A neighbouring piece already on the board (group snap — anywhere on board)
+   * 2. Its solved position on the board (classic snap)
+   *
+   * Returns true if any snap occurred.
+   */
   function trySnap(piece: PieceDef): boolean {
     const board = boardRef.current;
     if (!board) return false;
+    const dist = snapDist(piece);
+    const traySet = trayIdsRef.current;
+    const dragGroup = getGroup(board, piece);
+    const dragGroupIds = new Set(dragGroup.map(p => p.id));
+
+    // ── 1. Neighbour snap: check all 4 adjacent positions ──────────────────
+    // For each piece on the board (not in tray, not in drag group),
+    // check if piece can snap to its left/right/top/bottom side.
+    const neighbours: { dc: number; dr: number; dx: number; dy: number }[] = [
+      { dc:  1, dr:  0, dx:  piece.width,  dy: 0           }, // piece is to the LEFT of neighbour
+      { dc: -1, dr:  0, dx: -piece.width,  dy: 0           }, // piece is to the RIGHT of neighbour
+      { dc:  0, dr:  1, dx:  0,            dy: piece.height }, // piece is ABOVE neighbour
+      { dc:  0, dr: -1, dx:  0,            dy: -piece.height}, // piece is BELOW neighbour
+    ];
+
+    for (const candidate of board.pieces) {
+      if (traySet.has(candidate.id)) continue;
+      if (dragGroupIds.has(candidate.id)) continue;
+      if (candidate.isSelected) continue;
+
+      for (const nb of neighbours) {
+        // Does piece (col,row) + (dc,dr) = candidate (col,row)?
+        if (piece.col + nb.dc !== candidate.col) continue;
+        if (piece.row + nb.dr !== candidate.row) continue;
+
+        // Expected position of piece if it were correctly placed next to candidate
+        const expectedX = candidate.x - nb.dx;
+        const expectedY = candidate.y - nb.dy;
+
+        const dx = piece.x - expectedX;
+        const dy = piece.y - expectedY;
+        if (Math.sqrt(dx * dx + dy * dy) < dist) {
+          // Snap the entire drag group by the same offset
+          const offsetX = expectedX - piece.x;
+          const offsetY = expectedY - piece.y;
+          for (const gp of dragGroup) {
+            gp.x += offsetX;
+            gp.y += offsetY;
+            gp.isSelected = false;
+          }
+
+          // Merge groups
+          mergeGroups(board, piece, candidate);
+
+          // After merging, check if the full merged group aligns with solved positions
+          const mergedGroup = getGroup(board, piece);
+          checkAndPlaceGroup(board, mergedGroup);
+
+          snapPreviewRef.current = null;
+          snapGlowRef.current = { id: piece.id, until: Date.now() + 700 };
+          const placed = board.pieces.filter(p => p.isPlaced).length;
+          setPlacedCount(placed);
+          placedCountRef.current = placed;
+          if (placed === board.pieces.length) {
+            setIsComplete(true);
+            isCompleteRef.current = true;
+            onComplete?.();
+          }
+          return true;
+        }
+      }
+    }
+
+    // ── 2. Classic solved-position snap ─────────────────────────────────────
     const tx = board.boardX + piece.solvedX;
     const ty = board.boardY + piece.solvedY;
-    const pCX = piece.x + piece.width / 2;
-    const pCY = piece.y + piece.height / 2;
-    const tCX = tx + piece.width / 2;
-    const tCY = ty + piece.height / 2;
-    const dist = snapDist(piece);
-    const dx = pCX - tCX;
-    const dy = pCY - tCY;
+    const dx = piece.x - tx;
+    const dy = piece.y - ty;
     if (Math.sqrt(dx * dx + dy * dy) < dist) {
-      piece.x = tx;
-      piece.y = ty;
-      piece.isPlaced = true;
-      piece.isSelected = false;
-      piece.zIndex = -1;
+      // Snap entire drag group so this piece lands at its solved position
+      const offsetX = tx - piece.x;
+      const offsetY = ty - piece.y;
+      for (const gp of dragGroup) {
+        gp.x += offsetX;
+        gp.y += offsetY;
+        gp.isSelected = false;
+      }
+
+      // After snapping to solved position, check which group members are in place
+      const mergedGroup = getGroup(board, piece);
+      checkAndPlaceGroup(board, mergedGroup);
+
       snapPreviewRef.current = null;
       snapGlowRef.current = { id: piece.id, until: Date.now() + 700 };
       const placed = board.pieces.filter(p => p.isPlaced).length;
@@ -443,21 +563,72 @@ export default function PuzzleCanvas({
       }
       return true;
     }
+
     return false;
+  }
+
+  /**
+   * Mark pieces in a group as `isPlaced` if every piece in the group is
+   * within snap distance of its solved position.
+   */
+  function checkAndPlaceGroup(board: BoardState, group: PieceDef[]) {
+    const allAligned = group.every(p => {
+      const tx = board.boardX + p.solvedX;
+      const ty = board.boardY + p.solvedY;
+      const dx = p.x - tx;
+      const dy = p.y - ty;
+      return Math.sqrt(dx * dx + dy * dy) < snapDist(p) * 1.5;
+    });
+    if (allAligned) {
+      for (const p of group) {
+        p.x = board.boardX + p.solvedX;
+        p.y = board.boardY + p.solvedY;
+        p.isPlaced = true;
+        p.isSelected = false;
+        p.zIndex = -1;
+      }
+    }
   }
 
   function updateSnapPreview(piece: PieceDef) {
     const board = boardRef.current;
     if (!board) { snapPreviewRef.current = null; return; }
+    const traySet = trayIdsRef.current;
+    const dragGroup = getGroup(board, piece);
+    const dragGroupIds = new Set(dragGroup.map(p => p.id));
+    const dist = snapDist(piece) * 2;
+
+    // Check neighbour snap preview
+    const neighbours: { dc: number; dr: number; dx: number; dy: number }[] = [
+      { dc:  1, dr:  0, dx:  piece.width,  dy: 0           },
+      { dc: -1, dr:  0, dx: -piece.width,  dy: 0           },
+      { dc:  0, dr:  1, dx:  0,            dy: piece.height },
+      { dc:  0, dr: -1, dx:  0,            dy: -piece.height},
+    ];
+    for (const candidate of board.pieces) {
+      if (traySet.has(candidate.id)) continue;
+      if (dragGroupIds.has(candidate.id)) continue;
+      if (candidate.isSelected) continue;
+      for (const nb of neighbours) {
+        if (piece.col + nb.dc !== candidate.col) continue;
+        if (piece.row + nb.dr !== candidate.row) continue;
+        const expectedX = candidate.x - nb.dx;
+        const expectedY = candidate.y - nb.dy;
+        const dx = piece.x - expectedX;
+        const dy = piece.y - expectedY;
+        if (Math.sqrt(dx * dx + dy * dy) < dist) {
+          snapPreviewRef.current = { x: expectedX, y: expectedY, pieceId: piece.id };
+          return;
+        }
+      }
+    }
+
+    // Classic solved-position preview
     const tx = board.boardX + piece.solvedX;
     const ty = board.boardY + piece.solvedY;
-    const pCX = piece.x + piece.width / 2;
-    const pCY = piece.y + piece.height / 2;
-    const tCX = tx + piece.width / 2;
-    const tCY = ty + piece.height / 2;
-    const dx = pCX - tCX;
-    const dy = pCY - tCY;
-    if (Math.sqrt(dx * dx + dy * dy) < snapDist(piece) * 2) {
+    const dx = piece.x - tx;
+    const dy = piece.y - ty;
+    if (Math.sqrt(dx * dx + dy * dy) < dist) {
       snapPreviewRef.current = { x: tx, y: ty, pieceId: piece.id };
     } else {
       snapPreviewRef.current = null;
@@ -470,8 +641,26 @@ export default function PuzzleCanvas({
     lastPointerYRef.current = clientY;
     const dx = clientX - dragRef.current.startX;
     const dy = clientY - dragRef.current.startY;
-    dragRef.current.piece.x = dragRef.current.pieceStartX + dx;
-    dragRef.current.piece.y = dragRef.current.pieceStartY + dy;
+
+    // Move the dragged piece
+    const newX = dragRef.current.pieceStartX + dx;
+    const newY = dragRef.current.pieceStartY + dy;
+    const ddx = newX - dragRef.current.piece.x;
+    const ddy = newY - dragRef.current.piece.y;
+    dragRef.current.piece.x = newX;
+    dragRef.current.piece.y = newY;
+
+    // Move all other pieces in the same group by the same delta
+    const board = boardRef.current;
+    if (board && (ddx !== 0 || ddy !== 0)) {
+      const group = getGroup(board, dragRef.current.piece);
+      for (const gp of group) {
+        if (gp === dragRef.current.piece) continue;
+        gp.x += ddx;
+        gp.y += ddy;
+      }
+    }
+
     updateSnapPreview(dragRef.current.piece);
   }
 
@@ -481,18 +670,28 @@ export default function PuzzleCanvas({
     piece.isSelected = false;
     snapPreviewRef.current = null;
 
+    const board = boardRef.current;
     const inDrawerZone = lastPointerYRef.current > window.innerHeight - DRAWER_PEEK_HEIGHT - 10;
+    const dragGroup = board ? getGroup(board, piece) : [piece];
 
     const snapped = trySnap(piece);
     if (snapped) {
-      setTray(prev => prev.filter(p => p.id !== piece.id));
-    } else if (inDrawerZone) {
+      // Remove all drag-group pieces from tray (they're now on the board)
+      const groupIds = new Set(dragGroup.map(p => p.id));
+      setTray(prev => prev.filter(p => !groupIds.has(p.id)));
+    } else if (inDrawerZone && dragGroup.length === 1) {
+      // Only return to tray if it's a single piece (not a group)
       piece.isPlaced = false;
       setTray(prev => prev.some(p => p.id === piece.id) ? prev : [...prev, piece]);
-    } else if (fromTray) {
-      piece.isPlaced = false;
     } else {
-      piece.isPlaced = false;
+      // Leave floating on board
+      for (const gp of dragGroup) {
+        gp.isPlaced = false;
+        gp.isSelected = false;
+      }
+      if (fromTray && dragGroup.length === 1) {
+        piece.isPlaced = false;
+      }
     }
 
     dragRef.current = null;
@@ -584,8 +783,13 @@ export default function PuzzleCanvas({
     if (!hit) return;
 
     const maxZ = Math.max(0, ...board.pieces.map(p => p.zIndex));
-    hit.zIndex = maxZ + 1;
-    hit.isSelected = true;
+    // Elevate all pieces in the same group
+    const hitGroup = getGroup(board, hit);
+    for (const gp of hitGroup) {
+      gp.zIndex = maxZ + 1;
+      gp.isSelected = gp === hit;
+      gp.isPlaced = false; // un-place so group can move freely
+    }
 
     dragRef.current = {
       piece: hit,
@@ -689,7 +893,6 @@ export default function PuzzleCanvas({
           isDragging={isDragging}
           showGuide={showGuide}
           onToggleGuide={handleToggleGuide}
-          onShuffle={handleShuffle}
         />
       )}
 

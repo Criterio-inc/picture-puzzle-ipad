@@ -187,6 +187,8 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
 
   const triggerSaveRef = useRef<(() => Promise<void>) | null>(null);
+  const triggerNewPuzzleRef = useRef<(() => void) | null>(null);
+  const [showNewConfirm, setShowNewConfirm] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => setUser(u));
@@ -344,24 +346,127 @@ export default function App() {
           loadedTrayIds={game.loadedTrayIds}
           onSave={handleSave}
           onRegisterSaveTrigger={fn => { triggerSaveRef.current = fn; }}
+          onRegisterNewPuzzleTrigger={fn => { triggerNewPuzzleRef.current = fn; }}
           onComplete={() => {}}
         />
 
-        <button
-          onClick={handleBack}
-          disabled={isSaving}
-          className="absolute top-3 left-3 bg-white/75 backdrop-blur-sm rounded-full p-2 shadow-sm active:scale-95 transition-transform text-stone-600 disabled:opacity-60"
-          style={{ zIndex: 65 }}
-          title="Spara och gå tillbaka"
+        {/* Header bar — back button + new puzzle button */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 12,
+            right: 12,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            zIndex: 65,
+            pointerEvents: 'none',
+          }}
         >
-          {isSaving ? (
-            <div className="w-5 h-5 border-2 border-stone-500 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M5 12l7-7M5 12l7 7"/>
-            </svg>
-          )}
-        </button>
+          {/* Back / save */}
+          <button
+            onClick={handleBack}
+            disabled={isSaving}
+            className="bg-white/75 backdrop-blur-sm rounded-full p-2 shadow-sm active:scale-95 transition-transform text-stone-600 disabled:opacity-60"
+            style={{ pointerEvents: 'auto' }}
+            title="Spara och gå tillbaka"
+          >
+            {isSaving ? (
+              <div className="w-5 h-5 border-2 border-stone-500 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M5 12l7-7M5 12l7 7"/>
+              </svg>
+            )}
+          </button>
+
+          {/* New puzzle */}
+          <button
+            onClick={() => setShowNewConfirm(true)}
+            className="bg-white/75 backdrop-blur-sm rounded-full shadow-sm active:scale-95 transition-transform text-stone-600"
+            style={{ pointerEvents: 'auto', fontSize: 13, fontWeight: 600, padding: '6px 14px', color: '#7a5030' }}
+            title="Starta om med nytt pussel"
+          >
+            🔄 Nytt pussel
+          </button>
+        </div>
+
+        {/* Confirm dialog — new puzzle */}
+        {showNewConfirm && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 80,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.32)',
+              backdropFilter: 'blur(6px)',
+              WebkitBackdropFilter: 'blur(6px)',
+            }}
+            onClick={() => setShowNewConfirm(false)}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: '#fff',
+                borderRadius: 22,
+                padding: '28px 28px 22px',
+                textAlign: 'center',
+                maxWidth: 300,
+                width: '85%',
+                boxShadow: '0 16px 48px rgba(0,0,0,0.22)',
+              }}
+            >
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🔄</div>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#3d2e1a', marginBottom: 8 }}>
+                Starta om?
+              </h3>
+              <p style={{ fontSize: 14, color: '#9a8470', marginBottom: 22 }}>
+                Alla pusselbitar läggs tillbaka i lådan och blandas på nytt.
+              </p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => setShowNewConfirm(false)}
+                  style={{
+                    flex: 1,
+                    padding: '10px 0',
+                    borderRadius: 999,
+                    border: '1.5px solid #e0d0bc',
+                    background: 'none',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: '#9a8470',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNewConfirm(false);
+                    triggerNewPuzzleRef.current?.();
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 0',
+                    borderRadius: 999,
+                    border: 'none',
+                    background: '#92400e',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: '#fff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Starta om
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

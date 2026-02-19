@@ -23,9 +23,11 @@ const OPEN_FRACTION = 0.52;       // fraction of screen height when open
 const SNAP_THRESHOLD = 0.28;      // open if released > this far along travel
 const SPRING = 'cubic-bezier(0.34, 1.56, 0.64, 1)'; // springy open
 const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';  // snappy close
-const COLS = 3;
-const CELL_MAX_W = 108;
-const CELL_MAX_H = 108;
+// Tray cell size: always larger than the board piece so small pieces are still visible
+// We clamp between a min (small puzzles) and max (large puzzles with tiny board pieces)
+const TRAY_CELL_MIN = 80;   // px — floor for very large pieces (small puzzles)
+const TRAY_CELL_MAX = 160;  // px — ceiling for very small pieces (big puzzles)
+const TRAY_PIECE_TARGET = 120; // px target for the piece itself (without knob padding)
 
 // ─── TrayPieceItem ────────────────────────────────────────────────────────────
 const TrayPieceItem = memo(function TrayPieceItem({
@@ -51,7 +53,14 @@ const TrayPieceItem = memo(function TrayPieceItem({
     const natW = piece.width + pad * 2;
     const natH = piece.height + pad * 2;
 
-    const scale = Math.min(1, CELL_MAX_W / natW, CELL_MAX_H / natH);
+    // Scale the piece so it renders at TRAY_PIECE_TARGET px on its shorter side,
+    // then clamp the cell so tiny pieces get a boost and large pieces aren't too big.
+    const pieceShorter = Math.min(piece.width, piece.height);
+    const targetScale = TRAY_PIECE_TARGET / pieceShorter;
+    // Derive cell size from the scaled piece, clamped to our min/max
+    const cellW = Math.round(Math.min(TRAY_CELL_MAX, Math.max(TRAY_CELL_MIN, natW * targetScale)));
+    const cellH = Math.round(Math.min(TRAY_CELL_MAX, Math.max(TRAY_CELL_MIN, natH * targetScale)));
+    const scale = Math.min(cellW / natW, cellH / natH);
     const cssW = natW * scale;
     const cssH = natH * scale;
 
@@ -102,8 +111,6 @@ export interface DrawerTrayProps {
   /** Guide toggle — displayed in the handle bar */
   showGuide: boolean;
   onToggleGuide: () => void;
-  /** Shuffle/restart */
-  onShuffle: () => void;
 }
 
 // ─── DrawerTray ───────────────────────────────────────────────────────────────
@@ -117,7 +124,6 @@ export default function DrawerTray({
   isDragging,
   showGuide,
   onToggleGuide,
-  onShuffle,
 }: DrawerTrayProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -127,6 +133,9 @@ export default function DrawerTray({
   const gestureStartY = useRef(0);
   const gestureStartTranslate = useRef(0);
   const currentTranslate = useRef<number | null>(null); // null = not yet computed
+  const lastVelocityY = useRef(0);       // px/ms — for momentum snap
+  const lastEventTime = useRef(0);
+  const lastEventY = useRef(0);
 
   // Safe-area inset (home bar on modern iPads) — updated on rotation/resize
   const safeBottom = useRef(0);
@@ -204,6 +213,9 @@ export default function DrawerTray({
     gestureDragging.current = true;
     gestureStartY.current = e.clientY;
     gestureStartTranslate.current = currentTranslate.current ?? closedTranslate();
+    lastVelocityY.current = 0;
+    lastEventTime.current = e.timeStamp;
+    lastEventY.current = e.clientY;
 
     // Disable CSS transition during live gesture
     if (drawerRef.current) drawerRef.current.style.transition = 'none';
@@ -216,11 +228,31 @@ export default function DrawerTray({
     if (!gestureDragging.current) return;
     const dy = e.clientY - gestureStartY.current;
     const maxT = closedTranslate();
-    const newT = Math.max(0, Math.min(maxT, gestureStartTranslate.current + dy));
-    currentTranslate.current = newT;
+    let raw = gestureStartTranslate.current + dy;
+    // Rubber-band when dragging past boundaries
+    let newT: number;
+    if (raw < 0) {
+      // Past fully open — rubber-band with sqrt damping
+      newT = -Math.sqrt(-raw) * 4;
+    } else if (raw > maxT) {
+      // Past fully closed — rubber-band
+      const over = raw - maxT;
+      newT = maxT + Math.sqrt(over) * 4;
+    } else {
+      newT = raw;
+    }
+    currentTranslate.current = Math.max(0, Math.min(maxT, raw)); // clamp real position
     if (drawerRef.current) {
       drawerRef.current.style.transform = `translateY(${newT}px)`;
     }
+    // Track velocity (px/ms), smoothed with simple EWA
+    const dt = e.timeStamp - lastEventTime.current;
+    if (dt > 0) {
+      const rawV = (e.clientY - lastEventY.current) / dt;
+      lastVelocityY.current = lastVelocityY.current * 0.6 + rawV * 0.4;
+    }
+    lastEventTime.current = e.timeStamp;
+    lastEventY.current = e.clientY;
   }
 
   function onHandlePointerUp() {
@@ -230,7 +262,14 @@ export default function DrawerTray({
     const t = currentTranslate.current ?? maxT;
     // How far along the open travel are we? 0 = closed, 1 = fully open
     const progress = maxT > 0 ? 1 - t / maxT : 0;
-    if (progress > SNAP_THRESHOLD) {
+    const vel = lastVelocityY.current; // positive = moving down (closing)
+
+    // Velocity-based snap: flick up → open, flick down → close
+    if (vel < -0.4) {
+      snapOpen();
+    } else if (vel > 0.4) {
+      snapClosed();
+    } else if (progress > SNAP_THRESHOLD) {
       snapOpen();
     } else {
       snapClosed();
@@ -400,15 +439,6 @@ export default function DrawerTray({
           >
             {showGuide ? '🗺 Guide på' : '🗺 Guide'}
           </button>
-
-          {/* Shuffle */}
-          <button
-            onPointerDown={e => e.stopPropagation()}
-            onClick={onShuffle}
-            style={controlBtnStyle(false)}
-          >
-            🔄 Ny
-          </button>
         </div>
       </div>
 
@@ -442,7 +472,7 @@ export default function DrawerTray({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+              gridTemplateColumns: `repeat(auto-fill, minmax(${TRAY_CELL_MIN}px, 1fr))`,
               padding: `6px 8px calc(20px + env(safe-area-inset-bottom, 0px))`,
               gap: 4,
             }}
