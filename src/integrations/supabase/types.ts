@@ -48,7 +48,6 @@ export type Database = {
           image_url: string
           pieces_data: Json
           rows: number
-          tabs_config: Json | null
           tray_pieces: Json
           updated_at: string
           user_id: string
@@ -62,7 +61,6 @@ export type Database = {
           image_url: string
           pieces_data?: Json
           rows?: number
-          tabs_config?: Json | null
           tray_pieces?: Json
           updated_at?: string
           user_id: string
@@ -76,7 +74,6 @@ export type Database = {
           image_url?: string
           pieces_data?: Json
           rows?: number
-          tabs_config?: Json | null
           tray_pieces?: Json
           updated_at?: string
           user_id?: string

@@ -13,8 +13,8 @@ const PuzzleGame = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const COLS = Number(searchParams.get("cols")) || 24;
-  const ROWS = Number(searchParams.get("rows")) || 24;
+  const [COLS, setCOLS] = useState(Number(searchParams.get("cols")) || 24);
+  const [ROWS, setROWS] = useState(Number(searchParams.get("rows")) || 24);
   const [trayPieces, setTrayPieces] = useState<PuzzlePiece[]>([]);
   const [boardPieces, setBoardPieces] = useState<PuzzlePiece[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,7 +31,7 @@ const PuzzleGame = () => {
   const boardPiecesRef = useRef<PuzzlePiece[]>([]);
   const trayPiecesRef = useRef<PuzzlePiece[]>([]);
   const gameIdRef = useRef<string | null>(gameId);
-
+  const loadedRef = useRef(false);
   // Keep refs in sync
   useEffect(() => { boardPiecesRef.current = boardPieces; }, [boardPieces]);
   useEffect(() => { trayPiecesRef.current = trayPieces; }, [trayPieces]);
@@ -62,7 +62,7 @@ const PuzzleGame = () => {
           .update({
             board_pieces: boardData,
             tray_pieces: trayData,
-            tabs_config: tabsData,
+            pieces_data: tabsData,
             updated_at: new Date().toISOString()
           })
           .eq("id", gameIdRef.current);
@@ -94,7 +94,7 @@ const PuzzleGame = () => {
             image_url: storedImageUrl,
             board_pieces: boardData,
             tray_pieces: trayData,
-            tabs_config: tabsData,
+            pieces_data: tabsData,
             cols: COLS,
             rows: ROWS,
           })
@@ -143,6 +143,7 @@ const PuzzleGame = () => {
   }, [autoSave, navigate]);
 
   useEffect(() => {
+    if (loadedRef.current) return;
     const loadGame = async () => {
       // Resume existing game from DB
       if (gameId && user) {
@@ -151,14 +152,19 @@ const PuzzleGame = () => {
             .from("puzzle_games")
             .select("*")
             .eq("id", gameId)
-            .single();
+            .maybeSingle();
 
           if (data) {
+            loadedRef.current = true;
             imageDataRef.current = data.image_url;
             imageUrlRef.current = data.image_url;
-            const savedTabsConfig = data.tabs_config as EnhancedTabsConfig | null;
+            const gameCols = data.cols || COLS;
+            const gameRows = data.rows || ROWS;
+            setCOLS(gameCols);
+            setROWS(gameRows);
+            const savedTabsConfig = (data.tabs_config || data.pieces_data) as unknown as EnhancedTabsConfig | null;
 
-            const result = await splitImage(data.image_url, COLS, ROWS, savedTabsConfig || undefined);
+            const result = await splitImage(data.image_url, gameCols, gameRows, savedTabsConfig || undefined);
             allPiecesRef.current = result.pieces;
             tabsConfigRef.current = result.tabs;
 
@@ -184,7 +190,7 @@ const PuzzleGame = () => {
         navigate("/");
         return;
       }
-
+      loadedRef.current = true;
       imageDataRef.current = imageData;
       // Use pre-compressed version for DB storage if available
       imageUrlRef.current = sessionStorage.getItem("puzzleImageCompressed") || imageData;
@@ -203,7 +209,7 @@ const PuzzleGame = () => {
     };
 
     loadGame();
-  }, [navigate, gameId, user, COLS, ROWS]);
+  }, [navigate, gameId, user]);
 
   const toggleSelect = useCallback((id: number) => {
     setSelectedIds((prev) => {
