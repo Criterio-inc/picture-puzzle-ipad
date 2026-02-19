@@ -91,8 +91,8 @@ const PieceTray = ({
 
   return (
     <div
-      className={`flex flex-col border-t border-tray-border bg-tray transition-all duration-300 ${
-        expanded ? "h-[70dvh]" : "h-[52px]"
+      className={`flex flex-col border-t border-tray-border bg-tray/95 backdrop-blur-sm transition-all duration-300 ${
+        expanded ? "h-[60dvh]" : "h-[52px]"
       }`}
     >
       {/* Toggle bar */}

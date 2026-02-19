@@ -201,7 +201,7 @@ const PuzzleBoard = ({
   return (
     <div
       ref={boardRef}
-      className="relative flex-1 overflow-hidden bg-board border-b border-board-border touch-none"
+      className="absolute inset-0 overflow-hidden bg-board touch-none"
       onPointerDown={handleBoardPointerDown}
       onPointerMove={(e) => {
         handlePointerMove(e);
@@ -213,8 +213,8 @@ const PuzzleBoard = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Zoom controls */}
-      <div className="absolute top-2 right-2 z-50 flex flex-col gap-1">
+      {/* Zoom controls - offset below header overlay */}
+      <div className="absolute top-14 right-2 z-30 flex flex-col gap-1">
         <Button
           variant="secondary"
           size="icon"
@@ -263,7 +263,7 @@ const PuzzleBoard = ({
       </div>
 
       {/* Zoom level indicator */}
-      <div className="absolute bottom-2 right-2 z-50 text-xs text-muted-foreground bg-background/70 px-2 py-0.5 rounded">
+      <div className="absolute bottom-16 right-2 z-30 text-xs text-muted-foreground bg-background/70 px-2 py-0.5 rounded">
         {Math.round(zoom * 100)}%
       </div>
 

@@ -310,19 +310,8 @@ const PuzzleGame = () => {
   }
 
   return (
-    <div className="flex h-dvh flex-col bg-background">
-      <PuzzleHeader
-        totalPieces={COLS * ROWS}
-        boardCount={boardPieces.length}
-        trayCount={trayPieces.length}
-        onClearStray={clearStrayPieces}
-        onGiveUp={giveUp}
-        onBack={handleBack}
-        showPreview={showPreview}
-        onTogglePreview={() => setShowPreview(!showPreview)}
-        showGuide={showGuide}
-        onToggleGuide={() => setShowGuide(!showGuide)}
-      />
+    <div className="relative h-dvh w-full bg-background overflow-hidden">
+      {/* Board takes FULL screen */}
       <PuzzleBoard
         pieces={boardPieces}
         onUpdateGroupPosition={updateGroupPosition}
@@ -335,14 +324,32 @@ const PuzzleGame = () => {
         showGuide={showGuide}
         imageUrl={imageDataRef.current}
       />
-      <PieceTray
-        pieces={trayPieces}
-        selectedIds={selectedIds}
-        onToggleSelect={toggleSelect}
-        onSendToBoard={sendToBoard}
-        expanded={trayExpanded}
-        onToggleExpand={() => setTrayExpanded(!trayExpanded)}
-      />
+      {/* Header overlays on top */}
+      <div className="absolute top-0 left-0 right-0 z-40">
+        <PuzzleHeader
+          totalPieces={COLS * ROWS}
+          boardCount={boardPieces.length}
+          trayCount={trayPieces.length}
+          onClearStray={clearStrayPieces}
+          onGiveUp={giveUp}
+          onBack={handleBack}
+          showPreview={showPreview}
+          onTogglePreview={() => setShowPreview(!showPreview)}
+          showGuide={showGuide}
+          onToggleGuide={() => setShowGuide(!showGuide)}
+        />
+      </div>
+      {/* Tray overlays at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 z-40">
+        <PieceTray
+          pieces={trayPieces}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          onSendToBoard={sendToBoard}
+          expanded={trayExpanded}
+          onToggleExpand={() => setTrayExpanded(!trayExpanded)}
+        />
+      </div>
     </div>
   );
 };
