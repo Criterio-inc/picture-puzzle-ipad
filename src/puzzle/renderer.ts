@@ -12,19 +12,22 @@ export function drawPiece(
   image: HTMLImageElement | HTMLCanvasElement | ImageBitmap,
   boardW: number,
   boardH: number,
-  options: { snapGlow?: boolean } = {},
+  options: { snapGlow?: boolean; snapGlowAlpha?: number } = {},
 ): void {
   const { x, y, width: w, height: h, solvedX, solvedY } = piece;
   const path = buildPiecePath(piece, KNOB_SCALE);
+  const glowAlpha = options.snapGlowAlpha ?? 1;
 
   // ── 1. Drop shadow (no clip) ──────────────────────────────────────────────
   ctx.save();
   ctx.translate(x, y);
   if (options.snapGlow) {
-    ctx.shadowColor = 'rgba(60,210,60,0.9)';
-    ctx.shadowBlur = 28;
+    const a = glowAlpha.toFixed(2);
+    ctx.shadowColor = `rgba(60,210,60,${(0.9 * glowAlpha).toFixed(2)})`;
+    ctx.shadowBlur = 28 * glowAlpha;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
+    void a; // suppress unused warning
   } else if (piece.isSelected) {
     ctx.shadowColor = 'rgba(60,100,255,0.65)';
     ctx.shadowBlur = 20;
@@ -75,7 +78,7 @@ export function drawPiece(
   ctx.translate(x, y);
 
   if (options.snapGlow) {
-    ctx.strokeStyle = 'rgba(60,210,60,0.9)';
+    ctx.strokeStyle = `rgba(60,210,60,${(0.9 * glowAlpha).toFixed(2)})`;
     ctx.lineWidth = 3.5;
     ctx.stroke(path);
   }
@@ -90,72 +93,3 @@ export function drawPiece(
   ctx.restore();
 }
 
-export function renderFrame(
-  ctx: CanvasRenderingContext2D,
-  cw: number,
-  ch: number,
-  boardX: number,
-  boardY: number,
-  boardW: number,
-  boardH: number,
-  image: HTMLImageElement | HTMLCanvasElement | ImageBitmap,
-  pieces: PieceDef[],
-  snapGlowId: string | null,
-  showGuide: boolean,
-): void {
-  // Background
-  ctx.clearRect(0, 0, cw, ch);
-  const grad = ctx.createLinearGradient(0, 0, 0, ch);
-  grad.addColorStop(0, '#f0e6d4');
-  grad.addColorStop(1, '#dfd0b4');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, cw, ch);
-
-  // Board shadow + background
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.18)';
-  ctx.shadowBlur = 30;
-  ctx.shadowOffsetY = 8;
-  ctx.fillStyle = '#f5edd9';
-  ctx.beginPath();
-  ctx.roundRect(boardX - 8, boardY - 8, boardW + 16, boardH + 16, 12);
-  ctx.fill();
-  ctx.restore();
-
-  ctx.strokeStyle = 'rgba(140,110,70,0.22)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(boardX - 8, boardY - 8, boardW + 16, boardH + 16, 12);
-  ctx.stroke();
-
-  // Guide outlines (faint piece silhouettes on the board)
-  if (showGuide) {
-    for (const piece of pieces) {
-      if (piece.isPlaced) continue;
-      ctx.save();
-      ctx.translate(boardX + piece.solvedX, boardY + piece.solvedY);
-      const p = buildPiecePath(piece, KNOB_SCALE);
-      ctx.globalAlpha = 0.14;
-      ctx.strokeStyle = '#6b5030';
-      ctx.lineWidth = 1;
-      ctx.stroke(p);
-      ctx.restore();
-    }
-  }
-
-  // Draw pieces: placed first (lower z), then floating on top
-  const sorted = [...pieces].sort((a, b) => a.zIndex - b.zIndex);
-
-  for (const piece of sorted) {
-    if (!piece.isPlaced) continue;
-    drawPiece(ctx, piece, image, boardW, boardH, {
-      snapGlow: piece.id === snapGlowId,
-    });
-  }
-  for (const piece of sorted) {
-    if (piece.isPlaced) continue;
-    drawPiece(ctx, piece, image, boardW, boardH, {
-      snapGlow: piece.id === snapGlowId,
-    });
-  }
-}

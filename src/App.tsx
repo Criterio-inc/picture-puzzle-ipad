@@ -253,7 +253,7 @@ export default function App() {
       <StartScreen
         onBack={() => setScreen('landing')}
         onStart={async (image, cols, rows, _imageUrl, imageIsPicsum) => {
-          const seed = Date.now();
+          const seed = crypto.getRandomValues(new Uint32Array(1))[0];
           const tempId = `tmp_${seed}`;
 
           if (!imageIsPicsum) {

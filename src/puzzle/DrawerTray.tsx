@@ -12,7 +12,7 @@
  * and never drops frames.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { PieceDef, buildPiecePath, KNOB_SCALE } from './generator';
 import { drawPiece } from './renderer';
 import { clearHueCache } from './colorSort';
@@ -28,7 +28,7 @@ const CELL_MAX_W = 108;
 const CELL_MAX_H = 108;
 
 // ─── TrayPieceItem ────────────────────────────────────────────────────────────
-function TrayPieceItem({
+const TrayPieceItem = memo(function TrayPieceItem({
   piece,
   boardImage,
   boardW,
@@ -79,7 +79,7 @@ function TrayPieceItem({
       />
     </div>
   );
-}
+});
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 export interface DrawerTrayProps {
@@ -128,15 +128,21 @@ export default function DrawerTray({
   const gestureStartTranslate = useRef(0);
   const currentTranslate = useRef<number | null>(null); // null = not yet computed
 
-  // Safe-area inset (home bar on modern iPads)
+  // Safe-area inset (home bar on modern iPads) — updated on rotation/resize
   const safeBottom = useRef(0);
   useEffect(() => {
-    // Read CSS env variable once
     const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;bottom:0;height:env(safe-area-inset-bottom,0px);width:0;pointer-events:none';
+    el.style.cssText = 'position:fixed;bottom:0;height:env(safe-area-inset-bottom,0px);width:0;pointer-events:none;visibility:hidden';
     document.body.appendChild(el);
-    safeBottom.current = el.getBoundingClientRect().height;
-    document.body.removeChild(el);
+    function update() { safeBottom.current = el.getBoundingClientRect().height; }
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      document.body.removeChild(el);
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
   }, []);
 
   function getDrawerH(): number {

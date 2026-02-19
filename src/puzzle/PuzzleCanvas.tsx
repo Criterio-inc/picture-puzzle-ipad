@@ -34,6 +34,14 @@ const BOARD_PAD_TOP = 6;
 const BOARD_PAD_SIDE = 6;
 const BOARD_PAD_BOTTOM = DRAWER_PEEK_HEIGHT + 4;
 
+// Path2D cache — keyed by piece object identity, cleared on new puzzle
+const pathCache = new WeakMap<PieceDef, Path2D>();
+function getCachedPath(piece: PieceDef): Path2D {
+  let p = pathCache.get(piece);
+  if (!p) { p = buildPiecePath(piece, KNOB_SCALE); pathCache.set(piece, p); }
+  return p;
+}
+
 interface Props {
   image: HTMLImageElement;
   cols: number;
@@ -284,6 +292,9 @@ export default function PuzzleCanvas({
     const canvas = canvasRef.current;
     if (!canvas) return;
     let running = true;
+    // Cache the background gradient so we don't recreate it every frame
+    let bgGrad: CanvasGradient | null = null;
+    let bgGradH = 0;
 
     function loop() {
       if (!running) return;
@@ -298,16 +309,27 @@ export default function PuzzleCanvas({
 
       const { boardX: bx, boardY: by, boardW: bw, boardH: bh, boardImage, pieces } = board;
       const now = Date.now();
-      const glowId = snapGlowRef.current && now < snapGlowRef.current.until
-        ? snapGlowRef.current.id
-        : null;
 
-      // Background
+      // Snap glow: compute fade-out alpha (1 → 0 over last 250ms of 700ms)
+      let glowId: string | null = null;
+      let glowAlpha = 1;
+      if (snapGlowRef.current) {
+        const remaining = snapGlowRef.current.until - now;
+        if (remaining > 0) {
+          glowId = snapGlowRef.current.id;
+          glowAlpha = Math.min(1, remaining / 250); // fade out in last 250ms
+        }
+      }
+
+      // Background — reuse gradient unless canvas height changed
       ctx.clearRect(0, 0, cw, ch);
-      const grad = ctx.createLinearGradient(0, 0, 0, ch);
-      grad.addColorStop(0, '#f0e6d4');
-      grad.addColorStop(1, '#dfd0b4');
-      ctx.fillStyle = grad;
+      if (!bgGrad || bgGradH !== ch) {
+        bgGrad = ctx.createLinearGradient(0, 0, 0, ch);
+        bgGrad.addColorStop(0, '#f0e6d4');
+        bgGrad.addColorStop(1, '#dfd0b4');
+        bgGradH = ch;
+      }
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, cw, ch);
 
       // Board shadow + bg
@@ -335,46 +357,42 @@ export default function PuzzleCanvas({
           ctx.globalAlpha = 0.14;
           ctx.strokeStyle = '#6b5030';
           ctx.lineWidth = 1;
-          ctx.stroke(buildPiecePath(p, KNOB_SCALE));
+          ctx.stroke(getCachedPath(p));
           ctx.restore();
         }
       }
 
-      // Sorted pieces
+      // Single sort — split into placed / floating / drag in one pass
       const sorted = [...pieces].sort((a, b) => a.zIndex - b.zIndex);
+      const drag = dragRef.current;
+      const tray = trayIdsRef.current;
 
-      // Placed pieces first
       for (const p of sorted) {
         if (!p.isPlaced) continue;
-        drawPiece(ctx, p, boardImage, bw, bh, { snapGlow: p.id === glowId });
+        drawPiece(ctx, p, boardImage, bw, bh, { snapGlow: p.id === glowId, snapGlowAlpha: glowAlpha });
       }
-
-      // Floating board pieces (not placed, not in tray, not the active drag piece)
       for (const p of sorted) {
-        if (p.isPlaced) continue;
-        if (trayIdsRef.current.has(p.id)) continue;
-        if (dragRef.current?.piece === p) continue;
-        drawPiece(ctx, p, boardImage, bw, bh, { snapGlow: p.id === glowId });
+        if (p.isPlaced || tray.has(p.id) || drag?.piece === p) continue;
+        drawPiece(ctx, p, boardImage, bw, bh, { snapGlow: p.id === glowId, snapGlowAlpha: glowAlpha });
       }
 
-      // Snap preview ghost — faint outline at target position while dragging nearby
+      // Snap preview ghost
       const preview = snapPreviewRef.current;
-      if (preview && dragRef.current) {
-        const dragPiece = dragRef.current.piece;
+      if (preview && drag) {
         ctx.save();
         ctx.translate(preview.x, preview.y);
         ctx.globalAlpha = 0.35;
         ctx.strokeStyle = '#4a90e2';
         ctx.lineWidth = 2.5;
         ctx.setLineDash([5, 4]);
-        ctx.stroke(buildPiecePath(dragPiece, KNOB_SCALE));
+        ctx.stroke(getCachedPath(drag.piece));
         ctx.setLineDash([]);
         ctx.restore();
       }
 
       // Active drag piece (always topmost)
-      if (dragRef.current) {
-        drawPiece(ctx, dragRef.current.piece, boardImage, bw, bh, { snapGlow: false });
+      if (drag) {
+        drawPiece(ctx, drag.piece, boardImage, bw, bh, { snapGlow: false });
       }
 
       animRef.current = requestAnimationFrame(loop);
@@ -688,16 +706,28 @@ export default function PuzzleCanvas({
             background: 'rgba(0,0,0,0.35)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
+            animation: 'completionBgIn 0.35s ease-out forwards',
           }}
         >
+          <style>{`
+            @keyframes completionBgIn {
+              from { opacity: 0; backdrop-filter: blur(0px); }
+              to   { opacity: 1; backdrop-filter: blur(8px); }
+            }
+            @keyframes completionCardIn {
+              from { opacity: 0; transform: scale(0.88) translateY(16px); }
+              to   { opacity: 1; transform: scale(1) translateY(0); }
+            }
+          `}</style>
           <div
             style={{
               background: '#fff',
-              borderRadius: 24,
-              padding: '36px 32px',
+              borderRadius: 28,
+              padding: '40px 36px',
               textAlign: 'center',
               boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
               maxWidth: 320,
+              animation: 'completionCardIn 0.42s cubic-bezier(0.34,1.4,0.64,1) forwards',
             }}
           >
             <div style={{ fontSize: 60, marginBottom: 16 }}>🎉</div>
