@@ -70,12 +70,12 @@ function TrayPieceItem({
   return (
     <div
       className="flex items-center justify-center select-none"
-      style={{ touchAction: 'none', padding: '4px', cursor: 'grab' }}
+      style={{ touchAction: 'pan-y', padding: '4px', cursor: 'grab' }}
       onPointerDown={e => onPointerDown(e, piece)}
     >
       <canvas
         ref={ref}
-        style={{ display: 'block', touchAction: 'none', pointerEvents: 'none' }}
+        style={{ display: 'block', touchAction: 'pan-y', pointerEvents: 'none' }}
       />
     </div>
   );
@@ -233,22 +233,19 @@ export default function DrawerTray({
 
   // ─── Piece interaction: tap = stage on board, drag = lift & follow finger ──
   function onTrayPiecePointerDown(e: React.PointerEvent, piece: PieceDef) {
-    // Do NOT preventDefault here — let the browser decide if it's a scroll or not.
-    // We only capture if the finger moves horizontally or lifts quickly (tap/drag).
+    // No preventDefault, no setPointerCapture yet — let browser see if it's a scroll.
     e.stopPropagation();
 
     const startX = e.clientX;
     const startY = e.clientY;
     const startTime = Date.now();
     const pid = e.pointerId;
-    const DRAG_THRESHOLD = 8;    // px horizontal or diagonal movement → treat as piece drag
-    const SCROLL_THRESHOLD = 6;  // px downward → let native scroll take over
-    const TAP_TIME = 250;        // ms — quick tap, no movement
+    const target = e.currentTarget as HTMLElement;
+    const DRAG_THRESHOLD = 10;   // px total movement → piece drag
+    const SCROLL_BIAS = 1.5;     // vertical must be > SCROLL_BIAS × horizontal to scroll
+    const TAP_TIME = 280;        // ms — quick release = tap
 
-    let decided = false; // true once we've committed to tap, drag, or scroll
-
-    // Capture pointer so we get move/up even if finger slides off element
-    (e.target as HTMLElement).setPointerCapture(pid);
+    let decided = false;
 
     function onMove(ev: PointerEvent) {
       if (ev.pointerId !== pid || decided) return;
@@ -256,19 +253,23 @@ export default function DrawerTray({
       const dy = ev.clientY - startY;
       const absDx = Math.abs(dx);
       const absDy = Math.abs(dy);
+      const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (absDy > SCROLL_THRESHOLD && absDy > absDx) {
-        // Primarily vertical movement → native scroll, release capture
+      if (dist < 4) return; // too small to decide yet
+
+      if (absDy > absDx * SCROLL_BIAS) {
+        // Clearly scrolling down — abandon, let native scroll work
         decided = true;
         cleanup();
-        (e.target as HTMLElement).releasePointerCapture(pid);
         return;
       }
 
-      if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
-        // Diagonal or horizontal movement → piece drag
+      if (dist > DRAG_THRESHOLD) {
+        // Horizontal/diagonal move → piece drag
         decided = true;
         ev.preventDefault();
+        // Only now capture the pointer so we own all future move/up events
+        target.setPointerCapture(pid);
         snapClosed();
         onPieceLift(piece, ev.clientX, ev.clientY, pid);
         cleanup();
@@ -283,7 +284,6 @@ export default function DrawerTray({
         const dy = ev.clientY - startY;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < DRAG_THRESHOLD || elapsed < TAP_TIME) {
-          // It's a tap — place piece on board without drag
           onPieceTap(piece);
         }
       }
@@ -291,14 +291,15 @@ export default function DrawerTray({
     }
 
     function cleanup() {
-      (e.target as HTMLElement).removeEventListener('pointermove', onMove as EventListener);
-      (e.target as HTMLElement).removeEventListener('pointerup', onUp as EventListener);
-      (e.target as HTMLElement).removeEventListener('pointercancel', onUp as EventListener);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
     }
 
-    (e.target as HTMLElement).addEventListener('pointermove', onMove as EventListener);
-    (e.target as HTMLElement).addEventListener('pointerup', onUp as EventListener);
-    (e.target as HTMLElement).addEventListener('pointercancel', onUp as EventListener);
+    // Listen on window so we get events even if finger slides off the cell
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
   }
 
   // Pieces are always shown in their original (shuffled) order — never sorted
