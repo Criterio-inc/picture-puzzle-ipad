@@ -68,7 +68,7 @@ export default function LandingScreen({ userId, displayName, onNewPuzzle, onResu
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-stone-800 tracking-tight">Bildpussel</h1>
+          <h1 className="text-2xl font-bold text-stone-800 tracking-tight">Picture Puzzle</h1>
           <p className="text-stone-500 text-sm mt-0.5">Hej {firstName}!</p>
         </div>
         <button

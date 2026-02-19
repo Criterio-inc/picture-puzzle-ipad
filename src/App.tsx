@@ -47,6 +47,23 @@ interface GameSession {
   loadedTrayIds?: string[];
 }
 
+// ─── Floating piece decoration ────────────────────────────────────────────────
+
+const FLOAT_PIECES = [
+  { size: 72,  top:  '6%',  left:  '5%',  rotate: -25, delay: '0s',    duration: '7s'  },
+  { size: 52,  top:  '8%',  right: '8%',  rotate:  18, delay: '1.2s',  duration: '9s'  },
+  { size: 44,  top: '22%',  left:  '2%',  rotate:  42, delay: '0.5s',  duration: '11s' },
+  { size: 60,  top: '18%',  right: '3%',  rotate: -10, delay: '2s',    duration: '8s'  },
+  { size: 48,  top: '72%',  left:  '4%',  rotate:  30, delay: '0.8s',  duration: '10s' },
+  { size: 56,  top: '78%',  right: '6%',  rotate: -35, delay: '1.5s',  duration: '7s'  },
+  { size: 38,  top: '60%',  left:  '8%',  rotate:  55, delay: '2.5s',  duration: '12s' },
+  { size: 42,  top: '55%',  right: '2%',  rotate: -50, delay: '0.3s',  duration: '9s'  },
+  { size: 34,  top: '40%',  left:  '1%',  rotate:  15, delay: '1.8s',  duration: '13s' },
+  { size: 36,  top: '88%',  left: '40%',  rotate: -20, delay: '0.6s',  duration: '8s'  },
+  { size: 30,  top:  '3%',  left: '45%',  rotate:  38, delay: '2.2s',  duration: '10s' },
+  { size: 40,  top: '85%',  right:'18%',  rotate: -42, delay: '1s',    duration: '11s' },
+];
+
 // ─── Sign-in screen ───────────────────────────────────────────────────────────
 
 function SignInScreen() {
@@ -60,41 +77,103 @@ function SignInScreen() {
       await signInWithPopup(auth, googleProvider);
     } catch (e) {
       console.error(e);
-      setError('Kunde inte logga in. Försök igen.');
+      setError('Could not sign in. Please try again.');
       setLoading(false);
     }
   }
 
   return (
     <div
-      className="flex flex-col items-center justify-center h-full gap-8 p-8"
-      style={{ background: '#f0e6d4' }}
+      className="relative flex flex-col items-center justify-center h-full overflow-hidden select-none"
+      style={{ background: 'linear-gradient(160deg, #f5edd9 0%, #e8d5b0 100%)' }}
     >
-      <div className="text-center">
-        <div className="text-6xl mb-4">🧩</div>
-        <h1 className="text-3xl font-bold text-stone-800 tracking-tight">Bildpussel</h1>
-        <p className="text-stone-500 mt-2 text-sm">Logga in för att spara dina framsteg</p>
-      </div>
+      {/* Animated background pieces */}
+      <style>{`
+        @keyframes floatPiece {
+          0%   { transform: translateY(0px)   rotate(var(--r)); opacity: 0.13; }
+          50%  { transform: translateY(-18px) rotate(var(--r)); opacity: 0.20; }
+          100% { transform: translateY(0px)   rotate(var(--r)); opacity: 0.13; }
+        }
+      `}</style>
 
-      <button
-        onClick={handleGoogle}
-        disabled={loading}
-        className="flex items-center gap-3 bg-white rounded-2xl shadow-md px-6 py-4 text-stone-700 font-semibold text-base active:scale-95 transition-transform border border-stone-200 disabled:opacity-60"
+      {FLOAT_PIECES.map((p, i) => (
+        <img
+          key={i}
+          src="/picture_pussel.png"
+          style={{
+            position: 'absolute',
+            width: p.size,
+            height: p.size,
+            top: p.top,
+            left: 'left' in p ? p.left : undefined,
+            right: 'right' in p ? p.right : undefined,
+            '--r': `${p.rotate}deg`,
+            animation: `floatPiece ${p.duration} ease-in-out ${p.delay} infinite`,
+            pointerEvents: 'none',
+            userSelect: 'none',
+          } as React.CSSProperties}
+          alt=""
+          draggable={false}
+        />
+      ))}
+
+      {/* Card */}
+      <div
+        className="relative z-10 flex flex-col items-center gap-7 px-10 py-12 rounded-3xl"
+        style={{
+          background: 'rgba(255,255,255,0.55)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          boxShadow: '0 8px 48px rgba(100,70,20,0.15)',
+          border: '1px solid rgba(255,255,255,0.7)',
+          maxWidth: 340,
+          width: '90%',
+        }}
       >
-        {loading ? (
-          <div className="w-5 h-5 border-2 border-stone-400 border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <svg width="22" height="22" viewBox="0 0 48 48">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-          </svg>
-        )}
-        Fortsätt med Google
-      </button>
+        <img
+          src="/picture_pussel.png"
+          alt="Puzzle piece"
+          style={{ width: 88, height: 88, filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.18))' }}
+          draggable={false}
+        />
 
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold tracking-tight" style={{ color: '#3d2e1a' }}>
+            Picture Puzzle
+          </h1>
+          <p className="text-sm mt-1" style={{ color: '#8a7055' }}>
+            Sign in to save your progress
+          </p>
+        </div>
+
+        <button
+          onClick={handleGoogle}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-3 rounded-2xl py-4 px-6 font-semibold text-base transition-transform active:scale-95 disabled:opacity-60"
+          style={{
+            background: '#fff',
+            color: '#3d2e1a',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
+            border: '1px solid rgba(0,0,0,0.08)',
+          }}
+        >
+          {loading ? (
+            <div className="w-5 h-5 border-2 border-stone-400 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 48 48">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+          )}
+          Continue with Google
+        </button>
+
+        {error && (
+          <p className="text-red-500 text-sm text-center -mt-3">{error}</p>
+        )}
+      </div>
     </div>
   );
 }
