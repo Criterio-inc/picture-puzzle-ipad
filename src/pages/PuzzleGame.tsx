@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { PuzzlePiece, splitImage, trySnap, trySnapToGuide, getGuideRect, serializePieces, deserializePieces, placeAroundPuzzle, EnhancedTabsConfig } from "@/lib/puzzle";
+import { PuzzlePiece, splitImage, trySnap, trySnapToGuide, getGuideRect, serializePieces, deserializePieces, placeAroundPuzzle, EnhancedTabsConfig, compressImage } from "@/lib/puzzle";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import PuzzleHeader from "@/components/puzzle/PuzzleHeader";
@@ -25,6 +25,7 @@ const PuzzleGame = () => {
   const [gameId, setGameId] = useState<string | null>(searchParams.get("id"));
   const allPiecesRef = useRef<PuzzlePiece[]>([]);
   const imageDataRef = useRef<string>("");
+  const imageUrlRef = useRef<string>("");  // Compressed version for DB storage
   const tabsConfigRef = useRef<EnhancedTabsConfig | null>(null);
   const savingRef = useRef(false);
   const boardPiecesRef = useRef<PuzzlePiece[]>([]);
@@ -73,11 +74,24 @@ const PuzzleGame = () => {
         }
       } else {
         console.log("Creating new game");
+
+        // Use compressed image for DB, not the full-size one
+        let storedImageUrl = imageUrlRef.current || imageDataRef.current;
+
+        // Ensure we're not storing a huge base64 in DB
+        if (storedImageUrl.length > 500_000) {
+          try {
+            storedImageUrl = await compressImage(storedImageUrl, 800, 0.6);
+          } catch {
+            console.warn("Could not compress image for DB, using as-is");
+          }
+        }
+
         const { data, error } = await supabase
           .from("puzzle_games")
           .insert({
             user_id: user.id,
-            image_url: imageDataRef.current,
+            image_url: storedImageUrl,
             board_pieces: boardData,
             tray_pieces: trayData,
             tabs_config: tabsData,
@@ -122,52 +136,70 @@ const PuzzleGame = () => {
 
   const handleBack = useCallback(async () => {
     await autoSave();
+    // Clean up sessionStorage after successful save
+    sessionStorage.removeItem("puzzleImage");
+    sessionStorage.removeItem("puzzleImageCompressed");
     navigate("/");
   }, [autoSave, navigate]);
 
   useEffect(() => {
     const loadGame = async () => {
+      // Resume existing game from DB
       if (gameId && user) {
-        const { data } = await supabase
-          .from("puzzle_games")
-          .select("*")
-          .eq("id", gameId)
-          .single();
+        try {
+          const { data } = await supabase
+            .from("puzzle_games")
+            .select("*")
+            .eq("id", gameId)
+            .single();
 
-        if (data) {
-          imageDataRef.current = data.image_url;
-          const savedTabsConfig = data.tabs_config as EnhancedTabsConfig | null;
+          if (data) {
+            imageDataRef.current = data.image_url;
+            imageUrlRef.current = data.image_url;
+            const savedTabsConfig = data.tabs_config as EnhancedTabsConfig | null;
 
-          const result = await splitImage(data.image_url, COLS, ROWS, savedTabsConfig || undefined);
-          allPiecesRef.current = result.pieces;
-          tabsConfigRef.current = result.tabs;
+            const result = await splitImage(data.image_url, COLS, ROWS, savedTabsConfig || undefined);
+            allPiecesRef.current = result.pieces;
+            tabsConfigRef.current = result.tabs;
 
-          const savedBoard = data.board_pieces as any[];
-          const savedTray = data.tray_pieces as any[];
+            const savedBoard = data.board_pieces as any[];
+            const savedTray = data.tray_pieces as any[];
 
-          setBoardPieces(deserializePieces(savedBoard, result.pieces));
-          setTrayPieces(deserializePieces(savedTray, result.pieces));
-          setLoading(false);
+            setBoardPieces(deserializePieces(savedBoard, result.pieces));
+            setTrayPieces(deserializePieces(savedTray, result.pieces));
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.error("Failed to load game:", err);
+          toast.error("Kunde inte ladda spelet");
+          navigate("/");
           return;
         }
       }
 
+      // New game from uploaded image
       const imageData = sessionStorage.getItem("puzzleImage");
       if (!imageData) {
         navigate("/");
         return;
       }
-      imageDataRef.current = imageData;
 
-      splitImage(imageData, COLS, ROWS).then((result) => {
+      imageDataRef.current = imageData;
+      // Use pre-compressed version for DB storage if available
+      imageUrlRef.current = sessionStorage.getItem("puzzleImageCompressed") || imageData;
+
+      try {
+        const result = await splitImage(imageData, COLS, ROWS);
         allPiecesRef.current = result.pieces;
         tabsConfigRef.current = result.tabs;
         setTrayPieces(result.pieces);
         setLoading(false);
-      }).catch(() => {
-        toast.error("Kunde inte skapa pussel");
+      } catch (err) {
+        console.error("Failed to create puzzle:", err);
+        toast.error("Kunde inte skapa pussel. Försök med en annan bild.");
         navigate("/");
-      });
+      }
     };
 
     loadGame();
@@ -215,10 +247,22 @@ const PuzzleGame = () => {
     toast.info(`${solos.length} singelbitar flyttade till lådan`);
   }, [boardPieces]);
 
-  const giveUp = useCallback(() => {
+  const giveUp = useCallback(async () => {
+    // Delete from DB if saved
+    if (gameIdRef.current && user) {
+      try {
+        await supabase
+          .from("puzzle_games")
+          .update({ completed: true })
+          .eq("id", gameIdRef.current);
+      } catch {
+        // Silently fail - not critical
+      }
+    }
     sessionStorage.removeItem("puzzleImage");
+    sessionStorage.removeItem("puzzleImageCompressed");
     navigate("/");
-  }, [navigate]);
+  }, [navigate, user]);
 
   const updateGroupPosition = useCallback((groupId: number, dx: number, dy: number) => {
     setBoardPieces((prev) => {

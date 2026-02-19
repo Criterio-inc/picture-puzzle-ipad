@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Puzzle, Upload, LogOut, Image, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { compressImage } from "@/lib/puzzle";
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB raw file limit
 
 interface SavedGame {
   id: string;
@@ -48,22 +51,55 @@ const [processing, setProcessing] = useState(false);
   const handleImageSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     if (!file.type.startsWith("image/")) {
-      toast.error("Välj en bildfil");
+      toast.error("Välj en bildfil (JPEG, PNG, etc.)");
       return;
     }
+
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("Bilden är för stor. Max 25MB.");
+      return;
+    }
+
     setProcessing(true);
-    const reader = new FileReader();
-    reader.onload = () => {
-      sessionStorage.setItem("puzzleImage", reader.result as string);
+
+    try {
+      // Read the file
+      const rawDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === "string") {
+            resolve(reader.result);
+          } else {
+            reject(new Error("FileReader result is not a string"));
+          }
+        };
+        reader.onerror = () => reject(new Error("Kunde inte läsa filen"));
+        reader.readAsDataURL(file);
+      });
+
+      // Compress for storage (smaller version for DB thumbnail/reference)
+      const compressed = await compressImage(rawDataUrl, 1200, 0.7);
+
+      // Store compressed version for DB (image_url) and full version for puzzle
+      sessionStorage.setItem("puzzleImage", rawDataUrl);
+      sessionStorage.setItem("puzzleImageCompressed", compressed);
+
       const sel = difficultyOptions.find((d) => d.key === difficulty)!;
-      navigate(`/puzzle?cols=${sel.pieces === 64 ? 8 : sel.pieces === 256 ? 16 : 24}&rows=${sel.pieces === 64 ? 8 : sel.pieces === 256 ? 16 : 24}`);
-    };
-    reader.onerror = () => {
-      toast.error("Kunde inte läsa bilden");
+      const cols = sel.pieces === 64 ? 8 : sel.pieces === 256 ? 16 : 24;
+      const rows = cols;
+      navigate(`/puzzle?cols=${cols}&rows=${rows}`);
+    } catch (err) {
+      console.error("Image processing error:", err);
+      toast.error("Kunde inte läsa bilden. Försök med en annan bild.");
+    } finally {
       setProcessing(false);
-    };
-    reader.readAsDataURL(file);
+      // Reset file input so same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   }, [navigate, difficulty]);
 
   const resumeGame = (id: string, imageUrl: string) => {

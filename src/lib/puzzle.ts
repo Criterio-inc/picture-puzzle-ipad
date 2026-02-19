@@ -164,20 +164,69 @@ function getTabParams(row: number, col: number, rows: number, cols: number, tabs
   return { top, right, bottom, left };
 }
 
+const MAX_DIMENSION = 2400;
 const MIN_DIMENSION = 2400;
 
 function normalizeImage(img: HTMLImageElement): HTMLCanvasElement | HTMLImageElement {
   const maxSide = Math.max(img.width, img.height);
-  if (maxSide >= MIN_DIMENSION) return img;
-  const scale = MIN_DIMENSION / maxSide;
-  const w = Math.round(img.width * scale);
-  const h = Math.round(img.height * scale);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(img, 0, 0, w, h);
-  return canvas;
+
+  // Downscale large images
+  if (maxSide > MAX_DIMENSION) {
+    const scale = MAX_DIMENSION / maxSide;
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, 0, 0, w, h);
+    return canvas;
+  }
+
+  // Upscale very small images
+  if (maxSide < MIN_DIMENSION) {
+    const scale = MIN_DIMENSION / maxSide;
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, 0, 0, w, h);
+    return canvas;
+  }
+
+  return img;
+}
+
+/**
+ * Compress an image data URL to JPEG with max dimensions.
+ * Returns a smaller data URL suitable for storage.
+ */
+export function compressImage(dataUrl: string, maxDim = 1200, quality = 0.7): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const maxSide = Math.max(img.width, img.height);
+      let w = img.width;
+      let h = img.height;
+
+      if (maxSide > maxDim) {
+        const scale = maxDim / maxSide;
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => reject(new Error("Failed to load image for compression"));
+    img.src = dataUrl;
+  });
 }
 
 export function splitImage(
@@ -189,11 +238,21 @@ export function splitImage(
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
+      if (img.width === 0 || img.height === 0) {
+        reject(new Error("Bilden kunde inte laddas (0x0 dimensioner)"));
+        return;
+      }
+
       const src = normalizeImage(img);
       const srcW = src.width;
       const srcH = src.height;
       const pieceW = Math.floor(srcW / cols);
       const pieceH = Math.floor(srcH / rows);
+
+      if (pieceW < 10 || pieceH < 10) {
+        reject(new Error(`Bilden är för liten för ${cols}x${rows} bitar`));
+        return;
+      }
       const tabW = Math.ceil(pieceW * 0.35);
       const tabH = Math.ceil(pieceH * 0.35);
       const pieces: PuzzlePiece[] = [];
