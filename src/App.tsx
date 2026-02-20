@@ -189,6 +189,7 @@ export default function App() {
   const triggerSaveRef = useRef<(() => Promise<void>) | null>(null);
   const triggerNewPuzzleRef = useRef<(() => void) | null>(null);
   const [showNewConfirm, setShowNewConfirm] = useState(false);
+  const [puzzleCalmMode, setPuzzleCalmMode] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => setUser(u));
@@ -294,6 +295,7 @@ export default function App() {
       }
       setGame(null);
       setScreen('landing');
+      setPuzzleCalmMode(false);
     }
 
     async function handleSave(
@@ -348,6 +350,7 @@ export default function App() {
           onRegisterSaveTrigger={fn => { triggerSaveRef.current = fn; }}
           onRegisterNewPuzzleTrigger={fn => { triggerNewPuzzleRef.current = fn; }}
           onComplete={() => {}}
+          onCalmMode={(calm) => setPuzzleCalmMode(calm)}
         />
 
         {/* Header bar — back button + new puzzle button */}
@@ -381,15 +384,17 @@ export default function App() {
             )}
           </button>
 
-          {/* New puzzle */}
-          <button
-            onClick={() => setShowNewConfirm(true)}
-            className="bg-white/75 backdrop-blur-sm rounded-full shadow-sm active:scale-95 transition-transform text-stone-600"
-            style={{ pointerEvents: 'auto', fontSize: 13, fontWeight: 600, padding: '6px 14px', color: '#7a5030' }}
-            title="Starta om med nytt pussel"
-          >
-            🔄 Nytt pussel
-          </button>
+          {/* New puzzle — hidden in calm mode */}
+          {!puzzleCalmMode && (
+            <button
+              onClick={() => setShowNewConfirm(true)}
+              className="bg-white/75 backdrop-blur-sm rounded-full shadow-sm active:scale-95 transition-transform text-stone-600"
+              style={{ pointerEvents: 'auto', fontSize: 13, fontWeight: 600, padding: '6px 14px', color: '#7a5030' }}
+              title="Starta om med nytt pussel"
+            >
+              🔄 Nytt pussel
+            </button>
+          )}
         </div>
 
         {/* Confirm dialog — new puzzle */}

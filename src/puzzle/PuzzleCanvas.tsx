@@ -50,6 +50,7 @@ interface Props {
   loadedPiecesState?: SavedPieceState[];
   loadedTrayIds?: string[];
   onComplete?: () => void;
+  onCalmMode?: (calm: boolean) => void;
   /**
    * Called when App.tsx wants to persist the puzzle.
    * Returns the new/updated save ID.
@@ -109,6 +110,7 @@ export default function PuzzleCanvas({
   onSave,
   onRegisterSaveTrigger,
   onRegisterNewPuzzleTrigger,
+  onCalmMode,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<BoardState | null>(null);
@@ -134,8 +136,22 @@ export default function PuzzleCanvas({
   const [total, setTotal] = useState(cols * rows);
   const [showGuide, setShowGuide] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [calmMode, setCalmMode] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [, tick] = useState(0);
+
+  // ─── Celebration → calm mode transition ─────────────────────────────────
+  useEffect(() => {
+    if (!isComplete || calmMode) return;
+    setShowCelebration(true);
+    const timer = setTimeout(() => {
+      setShowCelebration(false);
+      setCalmMode(true);
+      onCalmMode?.(true);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [isComplete, calmMode, onCalmMode]);
 
   // ─── Tray helper — keeps ref in sync with state ─────────────────────────
   function setTray(pieces: PieceDef[] | ((prev: PieceDef[]) => PieceDef[])) {
@@ -878,11 +894,11 @@ export default function PuzzleCanvas({
         />
       )}
 
-      {/* HUD */}
-      <PuzzleHUD placedCount={placedCount} total={total} />
+      {/* HUD — hidden in calm mode */}
+      {!calmMode && <PuzzleHUD placedCount={placedCount} total={total} />}
 
-      {/* Drawer tray */}
-      {boardReady && (
+      {/* Drawer tray — hidden in calm mode */}
+      {boardReady && !calmMode && (
         <DrawerTray
           pieces={trayPieces}
           boardImage={boardReady.boardImage}
@@ -896,65 +912,92 @@ export default function PuzzleCanvas({
         />
       )}
 
-      {/* Completion overlay */}
-      {isComplete && (
+      {/* Confetti celebration overlay */}
+      {showCelebration && (
         <div
           style={{
             position: 'absolute',
             inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             zIndex: 70,
-            background: 'rgba(0,0,0,0.35)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            animation: 'completionBgIn 0.35s ease-out forwards',
+            overflow: 'hidden',
+            pointerEvents: 'none',
+            animation: 'celebrationBg 4.5s ease-out forwards',
           }}
         >
           <style>{`
-            @keyframes completionBgIn {
-              from { opacity: 0; backdrop-filter: blur(0px); }
-              to   { opacity: 1; backdrop-filter: blur(8px); }
+            @keyframes celebrationBg {
+              0%   { background: rgba(0,0,0,0); }
+              10%  { background: rgba(0,0,0,0.3); }
+              80%  { background: rgba(0,0,0,0.3); }
+              100% { background: rgba(0,0,0,0); }
             }
-            @keyframes completionCardIn {
-              from { opacity: 0; transform: scale(0.88) translateY(16px); }
-              to   { opacity: 1; transform: scale(1) translateY(0); }
+            @keyframes confettiFall {
+              0%   { top: -20px; opacity: 1; transform: rotate(0deg) translateX(0); }
+              50%  { opacity: 1; }
+              100% { top: 110vh; opacity: 0; transform: rotate(720deg) translateX(var(--drift)); }
+            }
+            @keyframes celebrationTextAnim {
+              0%   { opacity: 0; transform: scale(0.8); }
+              15%  { opacity: 1; transform: scale(1); }
+              75%  { opacity: 1; transform: scale(1); }
+              100% { opacity: 0; transform: scale(1.05); }
             }
           `}</style>
+          {/* Confetti particles */}
+          {Array.from({ length: 60 }, (_, i) => {
+            const colors = ['#f94144','#f3722c','#f8961e','#f9c74f','#90be6d','#43aa8b','#577590','#a855f7','#ec4899','#06b6d4'];
+            const x = Math.sin(i * 1.618 * Math.PI) * 50 + 50;
+            const delay = (i * 0.033) % 2;
+            const duration = 2 + (i % 5) * 0.5;
+            const size = 6 + (i % 4) * 3;
+            const drift = ((i % 7) - 3) * 12;
+            return (
+              <div
+                key={i}
+                style={{
+                  position: 'absolute',
+                  left: `${x}%`,
+                  top: -20,
+                  width: size,
+                  height: size * 0.6,
+                  backgroundColor: colors[i % colors.length],
+                  borderRadius: i % 2 === 0 ? '50%' : 2,
+                  animation: `confettiFall ${duration}s ${delay}s linear forwards`,
+                  '--drift': `${drift}px`,
+                } as React.CSSProperties}
+              />
+            );
+          })}
+          {/* Centered text */}
           <div
             style={{
-              background: '#fff',
-              borderRadius: 28,
-              padding: '40px 36px',
-              textAlign: 'center',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
-              maxWidth: 320,
-              animation: 'completionCardIn 0.42s cubic-bezier(0.34,1.4,0.64,1) forwards',
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              animation: 'celebrationTextAnim 4.5s ease-out forwards',
             }}
           >
-            <div style={{ fontSize: 60, marginBottom: 16 }}>🎉</div>
-            <h2 style={{ fontSize: 24, fontWeight: 700, color: '#3d2e1a', marginBottom: 8 }}>
-              Klart!
-            </h2>
-            <p style={{ color: '#9a8470', marginBottom: 28 }}>
-              Du löste pusslet!
+            <h1 style={{
+              fontSize: '3.5rem',
+              fontWeight: 800,
+              color: '#fff',
+              textShadow: '0 2px 20px rgba(0,0,0,0.5)',
+              letterSpacing: '-0.02em',
+              margin: 0,
+            }}>
+              Grattis!
+            </h1>
+            <p style={{
+              fontSize: '1.25rem',
+              color: '#fff',
+              textShadow: '0 1px 10px rgba(0,0,0,0.4)',
+              marginTop: 8,
+            }}>
+              Pusslet är klart
             </p>
-            <button
-              onClick={handleShuffle}
-              style={{
-                background: '#92400e',
-                color: '#fff',
-                borderRadius: 999,
-                padding: '12px 36px',
-                fontSize: 15,
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              Spela igen
-            </button>
           </div>
         </div>
       )}
