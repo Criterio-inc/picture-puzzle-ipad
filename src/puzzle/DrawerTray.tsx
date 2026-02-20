@@ -12,7 +12,7 @@
  * and never drops frames.
  */
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { PieceDef, buildPiecePath, KNOB_SCALE } from './generator';
 import { drawPiece } from './renderer';
 import { clearHueCache } from './colorSort';
@@ -24,10 +24,26 @@ const SNAP_THRESHOLD = 0.28;      // open if released > this far along travel
 const SPRING = 'cubic-bezier(0.34, 1.56, 0.64, 1)'; // springy open
 const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';  // snappy close
 // Tray cell size: always larger than the board piece so small pieces are still visible
-// We clamp between a min (small puzzles) and max (large puzzles with tiny board pieces)
-const TRAY_CELL_MIN = 80;   // px — floor for very large pieces (small puzzles)
+const TRAY_CELL_MIN = 88;   // px — floor for very large pieces (small puzzles)
 const TRAY_CELL_MAX = 160;  // px — ceiling for very small pieces (big puzzles)
 const TRAY_PIECE_TARGET = 120; // px target for the piece itself (without knob padding)
+
+// Stable per-piece rotation so pieces look scattered (Jigsawscapes style)
+// Map from piece id → rotation degrees
+const rotationCache = new Map<string, number>();
+function getPieceRotation(id: string, seed: number): number {
+  if (rotationCache.has(id)) return rotationCache.get(id)!;
+  // Deterministic from id + seed
+  let h = seed ^ 0xabcdef12;
+  for (let i = 0; i < id.length; i++) {
+    h = Math.imul(h ^ id.charCodeAt(i), 0x9e3779b9);
+    h ^= h >>> 16;
+  }
+  const rot = ((h >>> 0) / 0xffffffff - 0.5) * 14; // ±7 degrees
+  rotationCache.set(id, rot);
+  return rot;
+}
+function clearRotationCache() { rotationCache.clear(); }
 
 // ─── TrayPieceItem ────────────────────────────────────────────────────────────
 const TrayPieceItem = memo(function TrayPieceItem({
@@ -35,12 +51,14 @@ const TrayPieceItem = memo(function TrayPieceItem({
   boardImage,
   boardW,
   boardH,
+  rotation,
   onPointerDown,
 }: {
   piece: PieceDef;
   boardImage: HTMLCanvasElement;
   boardW: number;
   boardH: number;
+  rotation: number;
   onPointerDown: (e: React.PointerEvent, piece: PieceDef) => void;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -79,12 +97,25 @@ const TrayPieceItem = memo(function TrayPieceItem({
   return (
     <div
       className="flex items-center justify-center select-none"
-      style={{ touchAction: 'pan-y', padding: '4px', cursor: 'grab' }}
+      style={{
+        touchAction: 'pan-y',
+        padding: '8px',
+        cursor: 'grab',
+        flexShrink: 0,  // never compress below natural size
+      }}
       onPointerDown={e => onPointerDown(e, piece)}
     >
       <canvas
         ref={ref}
-        style={{ display: 'block', touchAction: 'pan-y', pointerEvents: 'none' }}
+        style={{
+          display: 'block',
+          touchAction: 'pan-y',
+          pointerEvents: 'none',
+          transform: `rotate(${rotation}deg)`,
+          // subtle lift shadow so pieces look 3D / lifted out
+          filter: 'drop-shadow(0px 3px 6px rgba(0,0,0,0.22))',
+          transition: 'transform 0.15s ease',
+        }}
       />
     </div>
   );
@@ -111,6 +142,8 @@ export interface DrawerTrayProps {
   /** Guide toggle — displayed in the handle bar */
   showGuide: boolean;
   onToggleGuide: () => void;
+  /** Puzzle seed for deterministic per-piece rotations */
+  seed: number;
 }
 
 // ─── DrawerTray ───────────────────────────────────────────────────────────────
@@ -124,6 +157,7 @@ export default function DrawerTray({
   isDragging,
   showGuide,
   onToggleGuide,
+  seed,
 }: DrawerTrayProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -154,6 +188,12 @@ export default function DrawerTray({
     };
   }, []);
 
+  // Clear rotation cache when puzzle resets
+  useEffect(() => {
+    clearRotationCache();
+    clearHueCache();
+  }, [boardImage]);
+
   function getDrawerH(): number {
     return drawerRef.current?.getBoundingClientRect().height ?? window.innerHeight * OPEN_FRACTION;
   }
@@ -178,11 +218,6 @@ export default function DrawerTray({
     if (isDragging) snapClosed();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDragging]);
-
-  // Clear color cache when puzzle is reset (pieces array length changes)
-  useEffect(() => {
-    clearHueCache();
-  }, [boardImage]);
 
   // ─── Snap helpers ─────────────────────────────────────────────────────────
   function snapOpen() {
@@ -347,7 +382,13 @@ export default function DrawerTray({
     window.addEventListener('pointercancel', onUp);
   }
 
-  // Pieces are always shown in their original (shuffled) order — never sorted
+  // Precompute stable rotations for all pieces
+  const rotations = useMemo(
+    () => Object.fromEntries(pieces.map(p => [p.id, getPieceRotation(p.id, seed)])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [seed], // only recompute on new puzzle, not on piece count changes
+  );
+
   const displayPieces = pieces;
 
   const drawerHeightPx = Math.round(window.innerHeight * OPEN_FRACTION);
@@ -365,11 +406,12 @@ export default function DrawerTray({
         // Initial transform set by effect; fallback here in case effect hasn't run yet
         transform: `translateY(${drawerHeightPx - PEEK_HEIGHT}px)`,
         zIndex: 50,
-        borderRadius: '18px 18px 0 0',
-        background: 'rgba(252, 247, 240, 0.97)',
+        borderRadius: '20px 20px 0 0',
+        // Warm wood / parchment feel
+        background: 'linear-gradient(180deg, #f5ede0 0%, #efe1cc 100%)',
         backdropFilter: 'blur(14px)',
         WebkitBackdropFilter: 'blur(14px)',
-        boxShadow: '0 -4px 28px rgba(0,0,0,0.16), 0 -1px 0 rgba(150,120,80,0.14)',
+        boxShadow: '0 -6px 32px rgba(0,0,0,0.18), 0 -1px 0 rgba(150,120,80,0.18)',
         display: 'flex',
         flexDirection: 'column',
         willChange: 'transform',
@@ -391,6 +433,12 @@ export default function DrawerTray({
           touchAction: 'none',
           userSelect: 'none',
           WebkitUserSelect: 'none',
+          borderBottom: '1px solid rgba(160,120,70,0.12)',
+          // Highlight when a piece is being dragged — invites drop-back
+          background: isDragging
+            ? 'rgba(180,130,60,0.12)'
+            : 'transparent',
+          transition: 'background 0.2s ease',
         }}
         onPointerDown={onHandlePointerDown}
         onPointerMove={onHandlePointerMove}
@@ -400,11 +448,14 @@ export default function DrawerTray({
         {/* Drag pill */}
         <div
           style={{
-            width: 44,
+            width: isDragging ? 60 : 44,
             height: 5,
             borderRadius: 3,
-            background: 'rgba(100,75,45,0.25)',
+            background: isDragging
+              ? 'rgba(140,90,30,0.55)'
+              : 'rgba(100,75,45,0.30)',
             flexShrink: 0,
+            transition: 'width 0.25s ease, background 0.2s ease',
           }}
         />
 
@@ -417,18 +468,20 @@ export default function DrawerTray({
             flexShrink: 0,
           }}
         >
-          {/* Piece count badge */}
+          {/* Piece count badge — becomes "drop here" hint during board drag */}
           <div
             style={{
-              background: 'rgba(140,105,55,0.12)',
+              background: isDragging ? 'rgba(120,75,20,0.18)' : 'rgba(140,105,55,0.14)',
               borderRadius: 999,
-              padding: '3px 12px',
-              fontSize: 12,
+              padding: '4px 14px',
+              fontSize: 13,
               fontWeight: 600,
-              color: '#7a5c38',
+              color: isDragging ? '#6b4010' : '#7a5c38',
+              letterSpacing: '0.01em',
+              transition: 'background 0.2s, color 0.2s',
             }}
           >
-            {pieces.length} bitar kvar
+            {isDragging ? '↓ Lägg i lådan' : `${pieces.length} bitar kvar`}
           </div>
 
           {/* Guide toggle */}
@@ -471,10 +524,12 @@ export default function DrawerTray({
         ) : (
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(auto-fill, minmax(${TRAY_CELL_MIN}px, 1fr))`,
-              padding: `6px 8px calc(20px + env(safe-area-inset-bottom, 0px))`,
-              gap: 4,
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              alignContent: 'flex-start',
+              padding: `10px 12px calc(24px + env(safe-area-inset-bottom, 0px))`,
+              gap: 16,
             }}
           >
             {displayPieces.map(piece => (
@@ -484,6 +539,7 @@ export default function DrawerTray({
                 boardImage={boardImage}
                 boardW={boardW}
                 boardH={boardH}
+                rotation={rotations[piece.id] ?? 0}
                 onPointerDown={onTrayPiecePointerDown}
               />
             ))}
