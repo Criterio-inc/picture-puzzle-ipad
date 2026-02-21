@@ -190,6 +190,7 @@ export default function App() {
   const triggerNewPuzzleRef = useRef<(() => void) | null>(null);
   const [showNewConfirm, setShowNewConfirm] = useState(false);
   const [puzzleCalmMode, setPuzzleCalmMode] = useState(false);
+  const [resumingId, setResumingId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => setUser(u));
@@ -214,37 +215,42 @@ export default function App() {
         userId={user.uid}
         displayName={user.displayName ?? user.email ?? 'du'}
         onNewPuzzle={() => setScreen('start')}
+        resumingId={resumingId}
         onResumePuzzle={async (save: PuzzleSaveRecord) => {
-          let img: HTMLImageElement | null = null;
+          if (resumingId) return; // prevent double-tap
+          setResumingId(save.id);
+          try {
+            let img: HTMLImageElement | null = null;
 
-          if (save.imageIsPicsum && save.picsumUrl) {
-            // Picsum — load from URL
-            img = await loadImageFromUrl(save.picsumUrl);
-          } else {
-            // Local — load from IndexedDB
-            img = await loadImage(save.id);
+            if (save.imageIsPicsum && save.picsumUrl) {
+              img = await loadImageFromUrl(save.picsumUrl);
+            } else {
+              img = await loadImage(save.id);
+            }
+
+            if (!img) {
+              alert('Bilden saknas på den här enheten. Pusslet kan inte laddas.');
+              return;
+            }
+
+            setGame({
+              image: img,
+              imageIsPicsum: save.imageIsPicsum,
+              picsumUrl: save.picsumUrl,
+              cols: save.cols,
+              rows: save.rows,
+              seed: save.puzzleSeed,
+              saveId: save.id,
+              loadedPiecesState: save.piecesState,
+              loadedTrayIds: save.trayIds,
+            });
+            setScreen('puzzle');
+          } catch (e) {
+            console.error('Resume failed', e);
+            alert('Kunde inte ladda pusslet. Försök igen.');
+          } finally {
+            setResumingId(null);
           }
-
-          if (!img) {
-            // Image missing from this device — signal LandingScreen to show error
-            // We re-fetch saves so LandingScreen can show the "image missing" state
-            // by passing null image. For now alert the user gracefully.
-            alert('Bilden saknas på den här enheten. Pusslet kan inte laddas.');
-            return;
-          }
-
-          setGame({
-            image: img,
-            imageIsPicsum: save.imageIsPicsum,
-            picsumUrl: save.picsumUrl,
-            cols: save.cols,
-            rows: save.rows,
-            seed: save.puzzleSeed,
-            saveId: save.id,
-            loadedPiecesState: save.piecesState,
-            loadedTrayIds: save.trayIds,
-          });
-          setScreen('puzzle');
         }}
       />
     );
@@ -288,7 +294,12 @@ export default function App() {
         try {
           await triggerSaveRef.current();
         } catch (e) {
-          console.error('Auto-save failed', e);
+          console.error('Save failed', e);
+          const leave = confirm('Sparningen misslyckades. Vill du lämna ändå? Osparade ändringar går förlorade.');
+          if (!leave) {
+            setIsSaving(false);
+            return;
+          }
         } finally {
           setIsSaving(false);
         }

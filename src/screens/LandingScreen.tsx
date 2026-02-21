@@ -18,9 +18,10 @@ interface Props {
   displayName: string;
   onNewPuzzle: () => void;
   onResumePuzzle: (save: PuzzleSaveRecord) => void;
+  resumingId?: string | null;
 }
 
-export default function LandingScreen({ userId, displayName, onNewPuzzle, onResumePuzzle }: Props) {
+export default function LandingScreen({ userId, displayName, onNewPuzzle, onResumePuzzle, resumingId }: Props) {
   const [saves, setSaves] = useState<PuzzleSaveRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -121,6 +122,7 @@ export default function LandingScreen({ userId, displayName, onNewPuzzle, onResu
                   key={save.id}
                   save={save}
                   isDeleting={deletingId === save.id}
+                  isResuming={resumingId === save.id}
                   onResume={() => onResumePuzzle(save)}
                   onDelete={e => handleDelete(save.id, e)}
                 />
@@ -138,11 +140,12 @@ export default function LandingScreen({ userId, displayName, onNewPuzzle, onResu
 interface CardProps {
   save: PuzzleSaveRecord;
   isDeleting: boolean;
+  isResuming: boolean;
   onResume: () => void;
   onDelete: (e: React.MouseEvent) => void;
 }
 
-function SaveCard({ save, isDeleting, onResume, onDelete }: CardProps) {
+function SaveCard({ save, isDeleting, isResuming, onResume, onDelete }: CardProps) {
   const pct = save.total > 0 ? Math.round((save.placedCount / save.total) * 100) : 0;
   const date = save.updatedAt.toLocaleDateString('sv-SE', {
     day: 'numeric', month: 'short',
@@ -190,6 +193,13 @@ function SaveCard({ save, isDeleting, onResume, onDelete }: CardProps) {
         </div>
         <p className="text-xs text-stone-400 mt-1">{save.placedCount}/{save.total} bitar</p>
       </div>
+
+      {/* Loading overlay */}
+      {isResuming && (
+        <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10 rounded-2xl">
+          <div className="w-7 h-7 border-3 border-amber-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
 
       {/* Delete button */}
       <button
