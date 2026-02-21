@@ -1,11 +1,24 @@
 import { useRef, useState } from 'react';
 
 const DIFFICULTIES = [
-  { label: 'Medel', cols: 5, rows: 4, desc: '20 bitar' },
-  { label: 'Svår', cols: 8, rows: 6, desc: '48 bitar' },
-  { label: 'Expert', cols: 12, rows: 9, desc: '108 bitar' },
-  { label: 'Mästare', cols: 20, rows: 20, desc: '400 bitar' },
+  { label: 'Medel', target: 20, desc: '~20 bitar' },
+  { label: 'Svår', target: 48, desc: '~48 bitar' },
+  { label: 'Expert', target: 108, desc: '~108 bitar' },
+  { label: 'Mästare', target: 400, desc: '~400 bitar' },
 ];
+
+/**
+ * Compute cols × rows so that each piece is approximately square,
+ * regardless of image orientation.
+ */
+function computeGrid(target: number, imgW: number, imgH: number): { cols: number; rows: number } {
+  const aspect = imgW / imgH;
+  let cols = Math.round(Math.sqrt(target * aspect));
+  cols = Math.max(cols, 2);
+  let rows = Math.round(target / cols);
+  rows = Math.max(rows, 2);
+  return { cols, rows };
+}
 
 interface Props {
   onBack: () => void;
@@ -64,7 +77,8 @@ export default function StartScreen({ onBack, onStart }: Props) {
   function startGame() {
     if (!imageEl) return;
     const d = DIFFICULTIES[difficulty];
-    onStart(imageEl, d.cols, d.rows, imageUrl, imageIsPicsum);
+    const { cols, rows } = computeGrid(d.target, imageEl.naturalWidth, imageEl.naturalHeight);
+    onStart(imageEl, cols, rows, imageUrl, imageIsPicsum);
   }
 
   function useDemoImage() {
@@ -139,20 +153,25 @@ export default function StartScreen({ onBack, onStart }: Props) {
         <div className="w-full max-w-sm">
           <p className="text-stone-600 text-sm font-medium mb-3 text-center">Svårighetsgrad</p>
           <div className="grid grid-cols-4 gap-2">
-            {DIFFICULTIES.map((d, i) => (
-              <button
-                key={d.label}
-                onClick={() => setDifficulty(i)}
-                className={`rounded-xl py-3 px-1 text-center transition-all ${
-                  difficulty === i
-                    ? 'bg-amber-700 text-white shadow-md scale-105'
-                    : 'bg-white/70 text-stone-600 border border-stone-200'
-                }`}
-              >
-                <div className="font-semibold text-sm">{d.label}</div>
-                <div className="text-xs opacity-70 mt-0.5">{d.desc}</div>
-              </button>
-            ))}
+            {DIFFICULTIES.map((d, i) => {
+              const count = imageEl
+                ? (() => { const g = computeGrid(d.target, imageEl.naturalWidth, imageEl.naturalHeight); return g.cols * g.rows; })()
+                : d.target;
+              return (
+                <button
+                  key={d.label}
+                  onClick={() => setDifficulty(i)}
+                  className={`rounded-xl py-3 px-1 text-center transition-all ${
+                    difficulty === i
+                      ? 'bg-amber-700 text-white shadow-md scale-105'
+                      : 'bg-white/70 text-stone-600 border border-stone-200'
+                  }`}
+                >
+                  <div className="font-semibold text-sm">{d.label}</div>
+                  <div className="text-xs opacity-70 mt-0.5">{count} bitar</div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
