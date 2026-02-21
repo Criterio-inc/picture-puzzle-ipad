@@ -296,6 +296,28 @@ export default function PuzzleCanvas({
     });
   }, [onRegisterSaveTrigger, onSave]);
 
+  // ─── Periodic auto-save (every 30s) ────────────────────────────────────
+  useEffect(() => {
+    if (!onSave) return;
+    const timer = setInterval(() => {
+      const board = boardRef.current;
+      if (!board || isCompleteRef.current) return;
+      onSave(
+        board.pieces,
+        [...trayIdsRef.current],
+        board.boardX,
+        board.boardY,
+        board.boardW,
+        board.boardH,
+        placedCountRef.current,
+        board.pieces.length,
+        false,
+        board.boardImage,
+      ).catch(e => console.warn('Auto-save failed', e));
+    }, 30_000);
+    return () => clearInterval(timer);
+  }, [onSave]);
+
   // ─── Canvas setup & resize ───────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
