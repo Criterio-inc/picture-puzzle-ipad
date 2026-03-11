@@ -65,9 +65,9 @@ function makeEdge(rng: () => number, isFlat: boolean, isTab: boolean): EdgeDef {
   if (isFlat) return { type: 'flat', size: 1, offset: 0.5, tilt: 0 };
   return {
     type: isTab ? 'tab' : 'blank',
-    size: 0.88 + rng() * 0.24,   // 0.88–1.12 (wider range → each piece feels unique)
-    offset: 0.40 + rng() * 0.20, // 0.40–0.60 (slightly off-centre for organic feel)
-    tilt: (rng() - 0.5) * 0.10,  // ±0.05 (subtle tilt → natural irregularity)
+    size: 0.92 + rng() * 0.16,   // 0.92–1.08 (moderate variation, clean shapes)
+    offset: 0.42 + rng() * 0.16, // 0.42–0.58 (centred, avoids corner distortion)
+    tilt: (rng() - 0.5) * 0.06,  // ±0.03 (minimal tilt, symmetric knobs)
   };
 }
 
@@ -217,11 +217,11 @@ export function buildPiecePath(
     const cx = x1 + dx * edge.offset + ey * edge.tilt * edgeLen * 0.08;
     const cy = y1 + dy * edge.offset - ex * edge.tilt * edgeLen * 0.08;
 
-    // Classic Ravensburger proportions: very narrow neck → wide, slightly flat head
-    const neckW = knobW * 0.18;   // narrower neck for elegant classic look
-    const headW = knobW * 0.54;   // wide round head — distinctive mushroom shape
-    const neckH = knobH * 0.32;   // shorter neck — head sits closer to edge
-    const headR = knobH * 0.68;   // generous head radius for round bubble
+    // Classic Ravensburger proportions: defined neck → round head
+    const neckW = knobW * 0.24;   // visible neck, not too thin
+    const headW = knobW * 0.50;   // round head, slightly wider than neck
+    const neckH = knobH * 0.34;   // neck height before head widens
+    const headR = knobH * 0.66;   // head radius (from neck top to tip)
 
     // Base points (where neck starts on the edge)
     const b1x = cx - ex * neckW;
@@ -245,38 +245,34 @@ export function buildPiecePath(
     const tipX = cx + nx * knobH;
     const tipY = cy + ny * knobH;
 
-    // ── Path: Ravensburger-style jigsaw with smooth organic bezier curves ──
+    // ── Path: classic jigsaw shape — 4 smooth bezier segments ──
     path.lineTo(b1x, b1y);
 
-    // Left neck: gentle inward pinch then outward to shoulder
+    // Left neck → left shoulder (straight-ish up, then curve outward)
     path.bezierCurveTo(
-      b1x + nx * neckH * 0.05 + ex * neckW * 0.1,   // ctrl1: very slight inward pinch
-      b1y + ny * neckH * 0.05 + ey * neckW * 0.1,
-      n1x - nx * neckH * 0.10 + ex * neckW * 0.15,   // ctrl2: neck waist
-      n1y - ny * neckH * 0.10 + ey * neckW * 0.15,
-      s1x, s1y,                                         // end: left shoulder
+      b1x + nx * neckH * 0.15,     b1y + ny * neckH * 0.15,      // ctrl1: up from base
+      n1x - nx * neckH * 0.1,      n1y - ny * neckH * 0.1,       // ctrl2: just below neck top
+      s1x, s1y,                                                     // end: left shoulder
     );
 
-    // Left head arc: shoulder → tip (wide smooth arc)
+    // Left shoulder → tip (wide smooth arc over the head)
     path.bezierCurveTo(
-      s1x + nx * headR * 0.78,     s1y + ny * headR * 0.78,     // ctrl1: strong outward pull
-      tipX - ex * headW * 0.60,     tipY - ey * headW * 0.60,     // ctrl2: approach tip from left
+      s1x + nx * headR * 0.7,      s1y + ny * headR * 0.7,       // ctrl1: outward from shoulder
+      tipX - ex * headW * 0.55,     tipY - ey * headW * 0.55,     // ctrl2: approach tip from left
       tipX, tipY,
     );
 
-    // Right head arc: tip → right shoulder
+    // Tip → right shoulder (mirror of left arc)
     path.bezierCurveTo(
-      tipX + ex * headW * 0.60,     tipY + ey * headW * 0.60,     // ctrl1: leave tip rightward
-      s2x + nx * headR * 0.78,      s2y + ny * headR * 0.78,      // ctrl2: strong outward pull
+      tipX + ex * headW * 0.55,     tipY + ey * headW * 0.55,     // ctrl1: leave tip rightward
+      s2x + nx * headR * 0.7,       s2y + ny * headR * 0.7,       // ctrl2: outward from shoulder
       s2x, s2y,
     );
 
-    // Right neck: shoulder back down to edge
+    // Right shoulder → right base (back down to edge)
     path.bezierCurveTo(
-      n2x - nx * neckH * 0.10 - ex * neckW * 0.15,   // ctrl1: neck waist
-      n2y - ny * neckH * 0.10 - ey * neckW * 0.15,
-      b2x + nx * neckH * 0.05 - ex * neckW * 0.1,    // ctrl2: slight inward pinch
-      b2y + ny * neckH * 0.05 - ey * neckW * 0.1,
+      n2x - nx * neckH * 0.1,      n2y - ny * neckH * 0.1,       // ctrl1: just below neck top
+      b2x + nx * neckH * 0.15,     b2y + ny * neckH * 0.15,      // ctrl2: up from base
       b2x, b2y,
     );
 
