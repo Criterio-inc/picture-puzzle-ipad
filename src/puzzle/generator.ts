@@ -9,7 +9,7 @@
 export type EdgeType = 'tab' | 'blank' | 'flat'; // flat = outer border
 
 /** Shared constant so renderer, canvas, and tray all use the same knob scale. */
-export const KNOB_SCALE = 0.34;
+export const KNOB_SCALE = 0.38;
 
 export interface EdgeDef {
   type: EdgeType;
@@ -180,17 +180,26 @@ export function buildPiecePath(
 
   const path = new Path2D();
 
-  // Helper: draw one edge with a bezier knob connector
-  // from (x1,y1) to (x2,y2) on a horizontal or vertical line,
-  // with the knob pointing outward (positive normal) if type=tab.
+  // ─── Draw one edge with a Ravensburger-style knob ───────────────────────
   //
-  // Ravensburger-style: the knob has a narrow neck, then a large round head.
-  // We use 4 bezier segments for a smooth, organic shape that interlocks perfectly.
+  // Reference shape (cross-section of a tab):
+  //
+  //            ╭───╮
+  //           │     │      ← large round head (nearly circular)
+  //            ╰─┬─╯
+  //              │         ← narrow neck
+  //           ╱     ╲      ← concave undercut (dips INTO the piece)
+  //     ─────╱       ╲───── edge line
+  //
+  // The undercut is the KEY feature that creates the classic "lock" feel.
+  // The path dips slightly past the edge line (inward) before rising
+  // through the neck into the round head.
+  //
   function drawEdge(
     x1: number, y1: number,
     x2: number, y2: number,
     edge: EdgeDef,
-    normal: { nx: number; ny: number }, // outward normal direction
+    normal: { nx: number; ny: number },
   ) {
     if (edge.type === 'flat') {
       path.lineTo(x2, y2);
@@ -201,7 +210,6 @@ export function buildPiecePath(
     const dy = y2 - y1;
     const edgeLen = Math.sqrt(dx * dx + dy * dy);
 
-    // Unit vectors: along edge (ex,ey) and outward normal (nx,ny) scaled by tab/blank dir
     const ex = dx / edgeLen;
     const ey = dy / edgeLen;
 
@@ -209,71 +217,112 @@ export function buildPiecePath(
     const nx = normal.nx * dir;
     const ny = normal.ny * dir;
 
-    // Knob size — height is the protrusion, width is the head diameter
+    // ── Proportions matching the red reference piece ──
+    // All sizes relative to knobH (the total outward protrusion)
     const knobH = Math.min(w, h) * knobScale * edge.size;
-    const knobW = knobH * 1.0;   // head as wide as tall → nice round bubble
 
-    // Centre of knob base on the edge line
-    const cx = x1 + dx * edge.offset + ey * edge.tilt * edgeLen * 0.08;
-    const cy = y1 + dy * edge.offset - ex * edge.tilt * edgeLen * 0.08;
+    const baseHW   = knobH * 0.42;   // half-width where knob departs from edge
+    const neckHW   = knobH * 0.20;   // half-width of the narrow neck
+    const headR    = knobH * 0.46;   // radius of the round head
+    const undercutD = knobH * 0.08;  // depth of undercut (INTO the piece)
+    const neckLen  = knobH * 0.28;   // neck length (edge → head bottom)
+    // tip height from edge = neckLen + headR*2 ≈ knobH*1.2 (generous protrusion)
 
-    // Classic Ravensburger proportions: defined neck → round head
-    const neckW = knobW * 0.24;   // visible neck, not too thin
-    const headW = knobW * 0.50;   // round head, slightly wider than neck
-    const neckH = knobH * 0.34;   // neck height before head widens
-    const headR = knobH * 0.66;   // head radius (from neck top to tip)
+    // Centre of knob on the edge line
+    const cx = x1 + dx * edge.offset + ey * edge.tilt * edgeLen * 0.05;
+    const cy = y1 + dy * edge.offset - ex * edge.tilt * edgeLen * 0.05;
 
-    // Base points (where neck starts on the edge)
-    const b1x = cx - ex * neckW;
-    const b1y = cy - ey * neckW;
-    const b2x = cx + ex * neckW;
-    const b2y = cy + ey * neckW;
+    // ── Key points ──
 
-    // Neck top points (where neck meets head)
-    const n1x = cx - ex * neckW + nx * neckH;
-    const n1y = cy - ey * neckW + ny * neckH;
-    const n2x = cx + ex * neckW + nx * neckH;
-    const n2y = cy + ey * neckW + ny * neckH;
+    // Base: where the shape leaves the straight edge (wide)
+    const b1x = cx - ex * baseHW;
+    const b1y = cy - ey * baseHW;
+    const b2x = cx + ex * baseHW;
+    const b2y = cy + ey * baseHW;
 
-    // Shoulder points (widest part of head, slightly above neck)
-    const s1x = cx - ex * headW + nx * (neckH + headR * 0.35);
-    const s1y = cy - ey * headW + ny * (neckH + headR * 0.35);
-    const s2x = cx + ex * headW + nx * (neckH + headR * 0.35);
-    const s2y = cy + ey * headW + ny * (neckH + headR * 0.35);
+    // Undercut trough: dips INTO the piece (opposite of normal)
+    const u1x = cx - ex * neckHW * 1.1 - nx * undercutD;
+    const u1y = cy - ey * neckHW * 1.1 - ny * undercutD;
+    const u2x = cx + ex * neckHW * 1.1 - nx * undercutD;
+    const u2y = cy + ey * neckHW * 1.1 - ny * undercutD;
 
-    // Tip of knob (top-centre of round head)
-    const tipX = cx + nx * knobH;
-    const tipY = cy + ny * knobH;
+    // Neck top: where narrow neck meets the head bottom
+    const n1x = cx - ex * neckHW + nx * neckLen;
+    const n1y = cy - ey * neckHW + ny * neckLen;
+    const n2x = cx + ex * neckHW + nx * neckLen;
+    const n2y = cy + ey * neckHW + ny * neckLen;
 
-    // ── Path: classic jigsaw shape — 4 smooth bezier segments ──
+    // Head centre
+    const hcx = cx + nx * (neckLen + headR);
+    const hcy = cy + ny * (neckLen + headR);
+
+    // Shoulder: widest point of head (at head centre height)
+    const s1x = hcx - ex * headR;
+    const s1y = hcy - ey * headR;
+    const s2x = hcx + ex * headR;
+    const s2y = hcy + ey * headR;
+
+    // Tip: top of head
+    const tipX = hcx + nx * headR;
+    const tipY = hcy + ny * headR;
+
+    // ── Path: 6 bezier segments ──
     path.lineTo(b1x, b1y);
 
-    // Left neck → left shoulder (straight-ish up, then curve outward)
+    // 1. Left base → undercut trough (concave dip into piece)
     path.bezierCurveTo(
-      b1x + nx * neckH * 0.15,     b1y + ny * neckH * 0.15,      // ctrl1: up from base
-      n1x - nx * neckH * 0.1,      n1y - ny * neckH * 0.1,       // ctrl2: just below neck top
-      s1x, s1y,                                                     // end: left shoulder
+      b1x - nx * undercutD * 0.6,  b1y - ny * undercutD * 0.6,   // pull inward
+      u1x - nx * undercutD * 0.3,  u1y - ny * undercutD * 0.3,   // deep in undercut
+      u1x,                          u1y,                            // undercut trough
     );
 
-    // Left shoulder → tip (wide smooth arc over the head)
+    // 2. Undercut → neck top (S-curve: from inward dip up through narrow neck)
     path.bezierCurveTo(
-      s1x + nx * headR * 0.7,      s1y + ny * headR * 0.7,       // ctrl1: outward from shoulder
-      tipX - ex * headW * 0.55,     tipY - ey * headW * 0.55,     // ctrl2: approach tip from left
-      tipX, tipY,
+      u1x + nx * neckLen * 0.4,    u1y + ny * neckLen * 0.4,     // rise from undercut
+      n1x - nx * neckLen * 0.2,    n1y - ny * neckLen * 0.2,     // approach neck top
+      n1x,                          n1y,                            // neck top
     );
 
-    // Tip → right shoulder (mirror of left arc)
+    // 3. Neck top → shoulder (widen to head)
     path.bezierCurveTo(
-      tipX + ex * headW * 0.55,     tipY + ey * headW * 0.55,     // ctrl1: leave tip rightward
-      s2x + nx * headR * 0.7,       s2y + ny * headR * 0.7,       // ctrl2: outward from shoulder
-      s2x, s2y,
+      n1x + nx * headR * 0.15,     n1y + ny * headR * 0.15,      // slightly above neck
+      s1x - nx * headR * 0.6,      s1y - ny * headR * 0.6,       // approach shoulder from below
+      s1x,                          s1y,                            // left shoulder
     );
 
-    // Right shoulder → right base (back down to edge)
+    // 4. Shoulder → tip (left half of head arc)
     path.bezierCurveTo(
-      n2x - nx * neckH * 0.1,      n2y - ny * neckH * 0.1,       // ctrl1: just below neck top
-      b2x + nx * neckH * 0.15,     b2y + ny * neckH * 0.15,      // ctrl2: up from base
-      b2x, b2y,
+      s1x + nx * headR * 0.56,     s1y + ny * headR * 0.56,      // circular arc control
+      tipX - ex * headR * 0.56,     tipY - ey * headR * 0.56,     // approach tip
+      tipX,                          tipY,                           // tip
+    );
+
+    // 5. Tip → right shoulder (right half of head arc — mirror of 4)
+    path.bezierCurveTo(
+      tipX + ex * headR * 0.56,     tipY + ey * headR * 0.56,     // leave tip
+      s2x + nx * headR * 0.56,      s2y + ny * headR * 0.56,      // circular arc control
+      s2x,                           s2y,                            // right shoulder
+    );
+
+    // 6. Right shoulder → neck top (narrow down — mirror of 3)
+    path.bezierCurveTo(
+      s2x - nx * headR * 0.6,       s2y - ny * headR * 0.6,       // below shoulder
+      n2x + nx * headR * 0.15,      n2y + ny * headR * 0.15,      // slightly above neck
+      n2x,                           n2y,                            // neck top
+    );
+
+    // 7. Neck top → undercut (mirror of 2)
+    path.bezierCurveTo(
+      n2x - nx * neckLen * 0.2,     n2y - ny * neckLen * 0.2,     // descend from neck
+      u2x + nx * neckLen * 0.4,     u2y + ny * neckLen * 0.4,     // approach undercut
+      u2x,                           u2y,                            // undercut trough
+    );
+
+    // 8. Undercut → right base (mirror of 1)
+    path.bezierCurveTo(
+      u2x - nx * undercutD * 0.3,   u2y - ny * undercutD * 0.3,   // deep in undercut
+      b2x - nx * undercutD * 0.6,   b2y - ny * undercutD * 0.6,   // pull inward
+      b2x,                           b2y,                            // right base
     );
 
     path.lineTo(x2, y2);
