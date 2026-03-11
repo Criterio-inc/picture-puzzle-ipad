@@ -30,7 +30,7 @@ import { SavedPieceState } from '../lib/puzzleSave';
 
 // Snap distance as fraction of piece's smaller dimension.
 const SNAP_FRACTION = 0.28;  // slightly more forgiving for group snapping
-const BOARD_PAD_TOP = 6;
+const BOARD_PAD_TOP = 54; // extra space for iPad status bar / Dynamic Island
 const BOARD_PAD_SIDE = 6;
 const BOARD_PAD_BOTTOM = DRAWER_PEEK_HEIGHT + 4;
 
@@ -242,7 +242,11 @@ export default function PuzzleCanvas({
 
     let trayPieceList: PieceDef[];
     if (isRestoring) {
-      trayPieceList = layout.pieces.filter(p => savedTraySet.has(p.id));
+      // Shuffle restored tray pieces so they don't appear in grid order
+      trayPieceList = shuffleArray(
+        layout.pieces.filter(p => savedTraySet.has(p.id)),
+        seed + 7, // offset seed so shuffle differs from initial scatter
+      );
     } else {
       trayPieceList = shuffleArray(layout.pieces, seed);
     }

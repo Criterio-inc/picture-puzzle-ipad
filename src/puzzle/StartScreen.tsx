@@ -4,7 +4,7 @@ const DIFFICULTIES = [
   { label: 'Medel', target: 20, desc: '~20 bitar' },
   { label: 'Svår', target: 48, desc: '~48 bitar' },
   { label: 'Expert', target: 108, desc: '~108 bitar' },
-  { label: 'Mästare', target: 400, desc: '~400 bitar' },
+  { label: 'Mästare', target: 280, desc: '~280 bitar' },
 ];
 
 /**
