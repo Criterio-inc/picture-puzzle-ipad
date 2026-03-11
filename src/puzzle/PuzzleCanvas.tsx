@@ -30,9 +30,9 @@ import { SavedPieceState } from '../lib/puzzleSave';
 
 // Snap distance as fraction of piece's smaller dimension.
 const SNAP_FRACTION = 0.28;  // slightly more forgiving for group snapping
-const BOARD_PAD_TOP = 54; // extra space for iPad status bar / Dynamic Island
-const BOARD_PAD_SIDE = 6;
-const BOARD_PAD_BOTTOM = DRAWER_PEEK_HEIGHT + 4;
+const BOARD_PAD_TOP = 48; // space for HUD pill + iPad status bar
+const BOARD_PAD_SIDE = 4;
+const BOARD_PAD_BOTTOM = DRAWER_PEEK_HEIGHT + 2;
 
 // Path2D cache — keyed by piece object identity, cleared on new puzzle
 const pathCache = new WeakMap<PieceDef, Path2D>();
@@ -177,10 +177,22 @@ export default function PuzzleCanvas({
     const boardMaxW = canvasW - BOARD_PAD_SIDE * 2;
     const boardMaxH = canvasH - BOARD_PAD_TOP - BOARD_PAD_BOTTOM;
     const aspect = image.naturalWidth / image.naturalHeight;
-    const boardW = Math.min(boardMaxW, boardMaxH * aspect);
-    const boardH = boardW / aspect;
+
+    // Fill the available rectangle as much as possible
+    let boardW: number, boardH: number;
+    if (boardMaxW / boardMaxH > aspect) {
+      // Tall-constrained: height is the limit
+      boardH = boardMaxH;
+      boardW = boardH * aspect;
+    } else {
+      // Wide-constrained: width is the limit
+      boardW = boardMaxW;
+      boardH = boardW / aspect;
+    }
+
     const boardX = Math.round((canvasW - boardW) / 2);
-    const boardY = Math.round(BOARD_PAD_TOP + (boardMaxH - boardH) / 2);
+    // Push board toward the top so more space is left for the drawer
+    const boardY = Math.round(BOARD_PAD_TOP + Math.min((boardMaxH - boardH) * 0.35, 20));
 
     // Pre-render image at board resolution
     const off = document.createElement('canvas');
@@ -935,6 +947,7 @@ export default function PuzzleCanvas({
           isDragging={isDragging}
           showGuide={showGuide}
           onToggleGuide={handleToggleGuide}
+          seed={seed}
         />
       )}
 

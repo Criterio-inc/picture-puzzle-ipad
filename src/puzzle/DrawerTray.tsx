@@ -24,9 +24,9 @@ const SNAP_THRESHOLD = 0.28;      // open if released > this far along travel
 const SPRING = 'cubic-bezier(0.34, 1.56, 0.64, 1)'; // springy open
 const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';  // snappy close
 // Tray cell size: always larger than the board piece so small pieces are still visible
-const TRAY_CELL_MIN = 88;   // px — floor for very large pieces (small puzzles)
-const TRAY_CELL_MAX = 160;  // px — ceiling for very small pieces (big puzzles)
-const TRAY_PIECE_TARGET = 120; // px target for the piece itself (without knob padding)
+const TRAY_CELL_MIN = 92;   // px — floor for very large pieces (small puzzles)
+const TRAY_CELL_MAX = 150;  // px — ceiling for very small pieces (big puzzles)
+const TRAY_PIECE_TARGET = 110; // px target for the piece itself (without knob padding)
 
 // Stable per-piece rotation so pieces look scattered (Jigsawscapes style)
 // Map from piece id → rotation degrees
@@ -112,8 +112,8 @@ const TrayPieceItem = memo(function TrayPieceItem({
           touchAction: 'pan-y',
           pointerEvents: 'none',
           transform: `rotate(${rotation}deg)`,
-          // subtle lift shadow so pieces look 3D / lifted out
-          filter: 'drop-shadow(0px 3px 6px rgba(0,0,0,0.22))',
+          // deeper shadow for raised-cardboard 3D look
+          filter: 'drop-shadow(1px 4px 8px rgba(0,0,0,0.30)) drop-shadow(0px 1px 2px rgba(0,0,0,0.15))',
           transition: 'transform 0.15s ease',
         }}
       />
