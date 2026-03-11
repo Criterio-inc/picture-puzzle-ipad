@@ -52,23 +52,41 @@ export function drawPiece(
   ctx.drawImage(image, -solvedX, -solvedY, boardW, boardH);
 
   // ── 3. Inner bevel: top-left light, bottom-right shadow (inside clip) ─────
-  // Creates the Ravensburger 3D embossed look.
-  const bevW = Math.min(w, h) * 0.06;
+  // Creates a Ravensburger-style 3D embossed / slightly raised look.
+  const bevW = Math.min(w, h) * 0.08;
 
-  // Dark edge (bottom + right inset) — feels pushed in
-  ctx.globalAlpha = 0.22;
-  const darkGrad = ctx.createLinearGradient(0, 0, 0, h);
-  darkGrad.addColorStop(0, 'rgba(0,0,0,0)');
-  darkGrad.addColorStop(0.6, 'rgba(0,0,0,0)');
-  darkGrad.addColorStop(1, 'rgba(0,0,0,0.55)');
-  ctx.fillStyle = darkGrad;
+  // Bottom-right dark edge — gives depth / shadow feel
+  ctx.globalAlpha = 0.18;
+  const darkGradV = ctx.createLinearGradient(0, 0, 0, h);
+  darkGradV.addColorStop(0, 'rgba(0,0,0,0)');
+  darkGradV.addColorStop(0.55, 'rgba(0,0,0,0)');
+  darkGradV.addColorStop(1, 'rgba(0,0,0,0.50)');
+  ctx.fillStyle = darkGradV;
   ctx.fillRect(-bevW, -bevW, w + bevW * 2, h + bevW * 2);
 
-  // Light edge (top-left) — top highlight
-  const lightGrad = ctx.createLinearGradient(0, 0, 0, h * 0.18);
-  lightGrad.addColorStop(0, 'rgba(255,255,255,0.32)');
+  // Right edge shadow
+  ctx.globalAlpha = 0.12;
+  const darkGradH = ctx.createLinearGradient(0, 0, w, 0);
+  darkGradH.addColorStop(0, 'rgba(0,0,0,0)');
+  darkGradH.addColorStop(0.55, 'rgba(0,0,0,0)');
+  darkGradH.addColorStop(1, 'rgba(0,0,0,0.40)');
+  ctx.fillStyle = darkGradH;
+  ctx.fillRect(-bevW, -bevW, w + bevW * 2, h + bevW * 2);
+
+  // Top highlight — light catching the raised surface
+  ctx.globalAlpha = 0.28;
+  const lightGrad = ctx.createLinearGradient(0, 0, 0, h * 0.22);
+  lightGrad.addColorStop(0, 'rgba(255,255,255,0.45)');
   lightGrad.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = lightGrad;
+  ctx.fillRect(-bevW, -bevW, w + bevW * 2, h + bevW * 2);
+
+  // Left highlight — subtle side light
+  ctx.globalAlpha = 0.10;
+  const leftGrad = ctx.createLinearGradient(0, 0, w * 0.18, 0);
+  leftGrad.addColorStop(0, 'rgba(255,255,255,0.30)');
+  leftGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = leftGrad;
   ctx.fillRect(-bevW, -bevW, w + bevW * 2, h + bevW * 2);
 
   ctx.restore();
