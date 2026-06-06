@@ -720,12 +720,13 @@ export default function PuzzleCanvas({
 
   function handlePointerUp(pointerId: number) {
     if (!dragRef.current || dragRef.current.pointerId !== pointerId) return;
-    const { piece, fromTray } = dragRef.current;
+    const { piece } = dragRef.current;
     piece.isSelected = false;
     snapPreviewRef.current = null;
 
     const board = boardRef.current;
-    const inDrawerZone = lastPointerYRef.current > window.innerHeight - DRAWER_PEEK_HEIGHT - 10;
+    // Return-to-tray zone: bottom DRAWER_PEEK_HEIGHT + extra 30px buffer
+    const inDrawerZone = lastPointerYRef.current > window.innerHeight - DRAWER_PEEK_HEIGHT - 30;
     const dragGroup = board ? getGroup(board, piece) : [piece];
 
     const snapped = trySnap(piece);
@@ -733,18 +734,24 @@ export default function PuzzleCanvas({
       // Remove all drag-group pieces from tray (they're now on the board)
       const groupIds = new Set(dragGroup.map(p => p.id));
       setTray(prev => prev.filter(p => !groupIds.has(p.id)));
-    } else if (inDrawerZone && dragGroup.length === 1) {
-      // Only return to tray if it's a single piece (not a group)
-      piece.isPlaced = false;
-      setTray(prev => prev.some(p => p.id === piece.id) ? prev : [...prev, piece]);
+    } else if (inDrawerZone) {
+      // Return all pieces in drag group to tray (break up the group)
+      for (const gp of dragGroup) {
+        gp.isPlaced = false;
+        gp.isSelected = false;
+        // Reset group membership — each piece becomes a singleton again
+        if (board) board.groups.set(gp.id, gp.id);
+      }
+      setTray(prev => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const toAdd = dragGroup.filter(gp => !existingIds.has(gp.id));
+        return [...prev, ...toAdd];
+      });
     } else {
       // Leave floating on board
       for (const gp of dragGroup) {
         gp.isPlaced = false;
         gp.isSelected = false;
-      }
-      if (fromTray && dragGroup.length === 1) {
-        piece.isPlaced = false;
       }
     }
 
